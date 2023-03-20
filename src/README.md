@@ -33,5 +33,5 @@ avr-objcopy -j .text -j .data -O ihex main.bin main.hex
 Por último, o programa gerado pode ser baixado na placa Arduino Nano usando o comando
 
 ```bash
-avrdude -b 57600 -c arduino -P /dev/ttyUSB0 -p atmega328p -v -v -v -v -D -U flash:w:main.hex:i
+avrdude -b 57600 -c arduino -P /dev/ttyUSB0 -p atmega328p -D -U flash:w:main.hex:i
 ```
