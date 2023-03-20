@@ -58,6 +58,29 @@ void gpio_set_group_mode(GPIO_t *port, uint8_t bitmask,
                          uint8_t offset, GPIO_mode mode[PORT_WIDTH]) {
 }
 
+uint8_t gpio_read_pin(GPIO_t *port, uint8_t pin_nbr) {
+}
+
+void gpio_write_pin(GPIO_t *port, uint8_t pin_nbr, uint8_t value) {
+}
+
+void gpio_set_pin(GPIO_t *port, uint8_t pin_nbr) {
+}
+
+void gpio_clear_pin(GPIO_t *port, uint8_t pin_nbr) {
+}
+
+void gpio_toggle_pin(GPIO_t *port, uint8_t pin_nbr) {
+    port->pin |= (1 << pin_nbr);
+}
+
 void gpio_set_pin_mode(GPIO_t *port, uint8_t pin_nbr,
                        GPIO_mode mode) {
+    if (mode == GPIO_OUT)
+        port->ddr |= (1 << pin_nbr);
+    else {
+        port->ddr &= ~(1 << pin_nbr);
+        if (mode == GPIO_IN_PULLUP)
+            port->port |= (1 << pin_nbr);
+    }
 }
