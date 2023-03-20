@@ -1,4 +1,4 @@
-* Biblioteca para uso no ATmega328p
+# Biblioteca para uso no ATmega328p
 
 Neste diretório estão os códigos para lidar com os temporizadores 0 e 2, a interface serial e os pinos GPIO do ATmega328p. Como uma estrutura de dados para se implementar as funcionalidades da interface serial, também existe uma implementação de um buffer circular para armazenamento de bytes.
 
