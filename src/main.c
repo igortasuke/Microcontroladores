@@ -8,7 +8,7 @@
  * Constante definindo quantos eventos de overflow devem acontecer
  * antes do callback inverter o nível lógico do LED
  */
-#define MAX_NBR_OVERFLOWS 8000
+#define MAX_NBR_OVERFLOWS 32
 
 /*
  * Função de callback chamada a todo evento de overflow pelas
