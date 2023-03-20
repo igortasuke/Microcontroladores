@@ -14,7 +14,7 @@ uint8_t is_cb_empty(circular_buffer_t* buf) {
 
 uint8_t cb_occupancy(circular_buffer_t* buf) {
     return buf->tail >= buf->head ? buf->tail - buf->head :
-	buf->tail + (BUF_SIZE + 1 - buf->head);
+        buf->tail + (BUF_SIZE + 1 - buf->head);
 }
 
 uint8_t cb_size(circular_buffer_t* buf) {
@@ -23,8 +23,8 @@ uint8_t cb_size(circular_buffer_t* buf) {
 
 void cb_push(circular_buffer_t* buf, uint8_t e) {
     if (!is_cb_full(buf)) {
-	buf->data[buf->tail] = e;
-	wrapped_inc(buf->tail);
+        buf->data[buf->tail] = e;
+        wrapped_inc(buf->tail);
     }
 }
 
@@ -32,8 +32,8 @@ int16_t cb_pop(circular_buffer_t* buf) {
     uint16_t e = -1;
 
     if (!is_cb_empty(buf)) {
-	e = buf->data[buf->head];
-	wrapped_inc(buf->head);
+        e = buf->data[buf->head];
+        wrapped_inc(buf->head);
     }
 
     return e;

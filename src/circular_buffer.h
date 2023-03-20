@@ -22,9 +22,9 @@ uint8_t cb_size(circular_buffer_t* buffer);
 void cb_push(circular_buffer_t* buffer, uint8_t e);
 int16_t cb_pop(circular_buffer_t* buffer);
 
-#define wrapped_inc(p) do {			     \
+#define wrapped_inc(p) do {                          \
         if (++(p) > BUF_SIZE)                        \
-            (p) = 0;				     \
+            (p) = 0;                                 \
     } while (0)
 
 

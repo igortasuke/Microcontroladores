@@ -45,7 +45,7 @@ void gpio_write_group(GPIO_t *port, uint8_t mask, uint8_t offset, uint8_t value)
 void gpio_clear_group(GPIO_t *port, uint8_t mask, uint8_t offset);
 void gpio_toggle_group(GPIO_t *port, uint8_t mask, uint8_t offset);
 void gpio_set_group_mode(GPIO_t *port, uint8_t bitmask,
-			 uint8_t offset, GPIO_mode mode[PORT_WIDTH]);
+                         uint8_t offset, GPIO_mode mode[PORT_WIDTH]);
 
 /*
  * Functions to operate on a single bit
@@ -56,6 +56,6 @@ void gpio_set_pin(GPIO_t *port, uint8_t pin_nbr);
 void gpio_clear_pin(GPIO_t *port, uint8_t pin_nbr);
 void gpio_toggle_pin(GPIO_t *port, uint8_t pin_nbr);
 void gpio_set_pin_mode(GPIO_t *port, uint8_t pin_nbr,
-		       GPIO_mode mode);
+                       GPIO_mode mode);
 
 #endif /* GPIO_H */
