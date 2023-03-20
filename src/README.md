@@ -7,7 +7,7 @@ Esta biblioteca vem sendo desenvolvida ao longo das aulas e será usada para imp
 Para a compilação do código, use um comando como
 
 ```bash
-avr-gcc -mmcu=atmega328p -Os file1.c file2.c file3.c
+avr-gcc -mmcu=atmega328p -O1 file1.c file2.c file3.c
 ```
 
 Isto gerará um arquivo-objeto para cada arquivo C. O exemplo acima, portanto, gerará três arquivos, file.o, file2.o e file3.o.
@@ -21,7 +21,7 @@ avr-gcc -mmcu=atmega328p file1.o file2.o file3.o -o main.bin
 Estas duas etapas, compilação e linkagem, podem ser realizadas de uma única vez com a linha de comando
 
 ```bash
-avr-gcc -mmcu=atmega328p -Os file1.c file2.c file3.c -o main.bin
+avr-gcc -mmcu=atmega328p -O1 file1.c file2.c file3.c -o main.bin
 ```
 
 O arquivo main.bin gerado por qualquer uma das duas maneiras acima deve ser convertido para um formato apropriado para uso posterior do programa avrdude através da linha de comando
