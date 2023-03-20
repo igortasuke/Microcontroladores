@@ -9,7 +9,8 @@ typedef void (*gpt_cb_t)(GPT_t* drv);
 typedef enum {
     MODE_NORMAL,
     MODE_CNC,
-    MODE_FAST_PWM
+    MODE_FAST_PWM_MAX_TOP,
+    MODE_FAST_PWM_USER_TOP
 } gpt_mode_t;
 
 typedef enum {
@@ -42,9 +43,8 @@ uint8_t gpt_enable_pwm_channel(GPT_t *gptp, uint8_t channel, uint8_t width);
 void gpt_disable_pwm_channel(GPT_t *gptp, uint8_t channel);
 
 uint8_t gpt_start_channel_notification(GPT_t *gptp, uint8_t channel,
-				       uint8_t interval,
-				       gpt_cb_t cb, uint8_t is_oneshot);
+                                       uint8_t interval,
+                                       gpt_cb_t cb, uint8_t is_oneshot);
 void gpt_stop_channel_notification(GPT_t *gptp, uint8_t channel);
 
 #endif /* TIMER_H */
-

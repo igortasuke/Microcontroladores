@@ -2,17 +2,17 @@
 #include "timer.h"
 
 
-/* 
+/*
  * Definição da estrutura de alguns registradores (mas não todos) do
  * temporizador 0 e 2 de acordo com a ordem sequencial dos
  * registradores no endereçamento de memória
  */
 typedef struct {
-    uint8_t tccra;
-    uint8_t tccrb;
-    uint8_t tcnt;
-    uint8_t ocra;
-    uint8_t ocrb;
+    volatile uint8_t tccra;
+    volatile uint8_t tccrb;
+    volatile uint8_t tcnt;
+    volatile uint8_t ocra;
+    volatile uint8_t ocrb;
 } GPT_Regs_t;
 
 /*
@@ -22,14 +22,14 @@ typedef struct {
  */
 struct GPT_Struct {
     GPT_Regs_t* regs;
-    uint8_t* tifr;
-    uint8_t* timsk;
+    volatile uint8_t* tifr;
+    volatile uint8_t* timsk;
     gpt_mode_t current_mode;
+    gpt_divisor_t divisor;
     gpt_cb_t current_cb;
     uint8_t is_oneshot;
     gpt_cb_t current_channel_cb[2];
     uint8_t is_channel_oneshot[2];
-    gpt_divisor_t divisor;
 };
 
 /*
@@ -46,10 +46,15 @@ GPT_t GPT_obj3;
 void gpt_init(void) {
     GPT_obj1.regs = (GPT_Regs_t *) &TCCR0A;
     GPT_obj3.regs = (GPT_Regs_t *) &TCCR2A;
-    GPT_obj1.tifr = (uint8_t *) &TIFR0;
-    GPT_obj3.tifr = (uint8_t *) &TIFR2;
-    GPT_obj1.timsk = (uint8_t *) &TIMSK0;
-    GPT_obj3.timsk = (uint8_t *) &TIMSK2;
+    GPT_obj1.tifr = &TIFR0;
+    GPT_obj3.tifr = &TIFR2;
+    GPT_obj1.timsk = &TIMSK0;
+    GPT_obj3.timsk = &TIMSK2;
+
+    GPT_obj1.current_cb = 0;
+    GPT_obj1.current_channel_cb[0] = GPT_obj1.current_channel_cb[1] = 0;
+    GPT_obj3.current_cb = 0;
+    GPT_obj3.current_channel_cb[0] = GPT_obj3.current_channel_cb[1] = 0;
 
     /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
 }
@@ -119,7 +124,8 @@ uint8_t gpt_change_interval(GPT_t *gptp, uint8_t interval) {
  * de trabalho será a razão entre o valor de width e o valor do topo
  * da contagem mais 1.
  *
- * Observe que os temporizadores do ATmega328p tem 2 canais cada.
+ * Observe que os temporizadores do ATmega328p tem 2 canais cada. O
+ * parâmetro channel é 0 para o primeiro canal e 1 para o segundo.
  */
 uint8_t gpt_enable_pwm_channel(GPT_t *gptp, uint8_t channel, uint8_t width) {
     /* DESENVOLVA SEU CÓDIGO AQUI */
@@ -144,8 +150,8 @@ void gpt_disable_pwm_channel(GPT_t *gptp, uint8_t channel) {
  * ocorrerá)
  */
 uint8_t gpt_start_channel_notification(GPT_t *gptp, uint8_t channel,
-				       uint8_t interval,
-				       gpt_cb_t cb, uint8_t is_oneshot) {
+                                       uint8_t interval,
+                                       gpt_cb_t cb, uint8_t is_oneshot) {
     /* DESENVOLVA SEU CÓDIGO AQUI */
 }
 
@@ -166,10 +172,10 @@ void gpt_stop_channel_notification(GPT_t *gptp, uint8_t channel) {
  */
 ISR(TIMER0_OVF_vect) {
     if (GPT_obj1.current_cb)
-	GPT_obj1.current_cb(&GPT_obj1);
+        GPT_obj1.current_cb(&GPT_obj1);
 
     if (GPT_obj1.is_oneshot)
-	TIMSK0 &= ~(1 << TOIE0);
+        TIMSK0 &= ~(1 << TOIE0);
 
     /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
 }
@@ -181,10 +187,10 @@ ISR(TIMER0_OVF_vect) {
  */
 ISR(TIMER0_COMPA_vect) {
     if (GPT_obj1.current_channel_cb[0])
-	GPT_obj1.current_channel_cb[0](&GPT_obj1);
+        GPT_obj1.current_channel_cb[0](&GPT_obj1);
 
     if (GPT_obj1.is_channel_oneshot[0])
-	TIMSK0 &= ~(1 << OCIE0A);
+        TIMSK0 &= ~(1 << OCIE0A);
 
     /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
 }
@@ -196,10 +202,10 @@ ISR(TIMER0_COMPA_vect) {
  */
 ISR(TIMER0_COMPB_vect) {
     if (GPT_obj1.current_channel_cb[1])
-	GPT_obj1.current_channel_cb[1](&GPT_obj1);
+        GPT_obj1.current_channel_cb[1](&GPT_obj1);
 
     if (GPT_obj1.is_channel_oneshot[1])
-	TIMSK0 &= ~(1 << OCIE0B);
+        TIMSK0 &= ~(1 << OCIE0B);
 
     /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
 }
