@@ -27,11 +27,11 @@ struct Uart_Struct {
     Uart_Regs_t* regs;
     circular_buffer_t rx_buf;
     circular_buffer_t tx_buf;
-    uart_cb_t rx_cb;
-    uart_cb_t tx_cb;
+    uart_rx_cb_t rx_cb;
+    uart_tx_cb_t tx_cb;
 };
 
-/* 
+/*
  * Definição da variável relativa aos módulos de hardware de
  * comunicação serial (o ATmega328p só tem um, e portanto só há uma
  * variável abaixo)
@@ -45,7 +45,8 @@ Uart_t* UARTD1 = &UART1_var;
  */
 void uart_init(Uart_t* drv) {
     UART1_var.regs = (Uart_Regs_t *) &UCSR0A;
-    UART1_var.rx_cb = UART1_var.tx_cb = 0;
+    UART1_var.rx_cb = 0;
+    UART1_var.tx_cb = 0;
     cb_init(&UARTD1->rx_buf);
     cb_init(&UARTD1->tx_buf);
 
@@ -60,7 +61,7 @@ void uart_init(Uart_t* drv) {
  * serial usa interrupções, esta função deve habilitá-las também.
  */
 void uart_start(Uart_t* drv, Uart_Config_t* cfg,
-		uint8_t transmitter_on, uint8_t receiver_on) {
+                uint8_t transmitter_on, uint8_t receiver_on) {
     /* DESENVOLVA SEU CÓDIGO AQUI */
 }
 
@@ -82,7 +83,7 @@ void uart_stop(Uart_t* drv, uint8_t transmitter_off, uint8_t receiver_off) {
  */
 uint8_t uart_writechar(Uart_t* drv, uint8_t ch) {
     while (is_cb_full(&drv->tx_buf))
-	;
+        ;
     /* DESENVOLVA SEU CÓDIGO AQUI */
 }
 
@@ -118,7 +119,7 @@ uint16_t uart_read(Uart_t* drv) {
  * Esta função lê "len" bytes recebidos pelo módulo da serial e
  * armazena-os na memória apontada por "buf". A função deve retornar o
  * número de bytes lidos, o que pode ser menor do que "len".
- * 
+ *
  * A função deve transferir os "len" bytes do buffer de recepção para
  * a memória apontada por "buf", deixando quaisquer bytes restantes no
  * buffer de recepção.  Se a quantidade de bytes no buffer de recepção
@@ -150,34 +151,48 @@ uint8_t uart_available_for_write(Uart_t* drv) {
 }
 
 /*
- * Função de interrupção para o evento de byte disponível. Caso o
- * buffer de recepção esteja cheio, o byte recebido é descartado
+ * Função de interrupção para o evento de byte disponível.  Se o
+ * ponteiro para a função de callback for não-nulo, a função é chamada
+ * e o dado recebido é passado para ela. Se o ponteiro for nulo e o
+ * buffer de recepção não estiver cheio, o byte recebido é colocado no
+ * buffer. Caso contrário, o byte é descartado
  */
 ISR(USART_RX_vect) {
     uint8_t data = UDR0;
-    if (!is_cb_full(&UART1_var.rx_buf))
-	cb_push(&UART1_var.rx_buf, data);
 
     if (UART1_var.rx_cb)
-	UART1_var.rx_cb(UARTD1);
+        UART1_var.rx_cb(UARTD1, data);
+    else
+        if (!is_cb_full(&UART1_var.rx_buf))
+            cb_push(&UART1_var.rx_buf, data);
 
     /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
 }
 
 /*
- * Função de interrupção para o evento do registrador UDR vazio
+ * Função de interrupção para o evento do registrador UDR vazio. A
+ * busca pelo byte a ser transmitido é feita primeiro através da
+ * função de callback de transmissão. Caso o ponteiro para esta função
+ * seja nulo ou se a função retornar -1, verifica-se se o buffer
+ * circular de recepção tem dado.  Se tiver, recupera-se um byte e
+ * transmite-se. Caso tudo falhe, a interrupção é desativada.
  */
 ISR(USART_UDRE_vect) {
-    uint16_t data = cb_pop(&UARTD1->tx_buf);
-    if (data != -1)
-	UDR0 = data;
-    else
-	/* Se não há mais nada a ser transmitido, desativamos a
-	   interrupção */
-	UCSR0B &= ~(1 << UDRIE0);
+    uint16_t data = -1;
 
-    if (UART1_var.tx_cb)
-	UART1_var.tx_cb(UARTD1);
+    if (UART1_var.tx_cb) {
+        data = UART1_var.tx_cb(UARTD1);
+        if (data == -1)
+            data = cb_pop(&UARTD1->tx_buf);
+    } else
+        data = cb_pop(&UARTD1->tx_buf);
+
+    if (data != -1)
+        UDR0 = data;
+    else
+        /* Se não há mais nada a ser transmitido, desativamos a
+           interrupção */
+        UCSR0B &= ~(1 << UDRIE0);
 
     /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
 }

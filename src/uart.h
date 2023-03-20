@@ -12,9 +12,20 @@
    serial.  A definição da estrutura em si é feita depois */
 typedef struct Uart_Struct Uart_t;
 
-/* Tipo relativo à função de callback a ser usada na interrupção.
-   Este tipo consiste de um ponteiro para função */
-typedef void (*uart_cb_t)(Uart_t*);
+/* Tipo relativo à função de callback a ser usada na interrupção de
+   recepção de dados.  Este tipo consiste de um ponteiro para uma
+   função que aceita como parâmetro o ponteiro para um
+   driver de serial. */
+typedef uint16_t (*uart_rx_cb_t)(Uart_t*, uint8_t);
+
+/* Tipo relativo à função de callback a ser usada na interrupção de
+   transmissão de dados.  Este tipo consiste de um ponteiro para uma
+   função que deve retornar ou um byte a ser transmitido ou o valor
+   -1, que informará a quem a chamar para buscar o byte em outro lugar
+   (no caso da interrupção, o buffer circular de dados a serem
+   transmitidos). A função aceita como parâmetro o ponteiro para um
+   driver de serial. */
+typedef uint16_t (*uart_tx_cb_t)(Uart_t*);
 
 /* Estrutura usada para configuração da porta serial.  Além dos
    parâmetros da comunicação serial, temos também possíveis funções de
@@ -25,8 +36,8 @@ typedef struct {
     uint8_t parity;
     uint8_t nbr_data_bits;
     uint8_t nbr_stop_bits;
-    uart_cb_t rx_cb;
-    uart_cb_t tx_cb;
+    uart_rx_cb_t rx_cb;
+    uart_tx_cb_t tx_cb;
 } Uart_Config_t;
 
 /*
@@ -39,9 +50,9 @@ extern Uart_t* UARTD1;
  */
 void uart_init(Uart_t* drv);
 void uart_start(Uart_t* drv, Uart_Config_t* cfg,
-		uint8_t transmitter_on, uint8_t receiver_on);
+                uint8_t transmitter_on, uint8_t receiver_on);
 void uart_stop(Uart_t* drv, uint8_t transmitter_off,
-	       uint8_t receiver_off);
+               uint8_t receiver_off);
 
 uint8_t uart_writechar(Uart_t* drv, uint8_t ch);
 uint8_t uart_write(Uart_t* drv, uint8_t* buf, uint8_t len);
