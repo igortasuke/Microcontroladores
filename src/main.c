@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <avr/interrupt.h>
 #include "timer.h"
 #include "gpio.h"
 
@@ -16,10 +17,10 @@
  * placa Arduino Nano está ligado) é invertido.
  */
 void cb(GPT_t* drv) {
-    static ctr = MAX_NBR_OVERFLOWS;
+    static int ctr = MAX_NBR_OVERFLOWS;
 
     if (--ctr == 0) {
-	PINB |= (1 << 5);
+	gpio_toggle_pin(GPIOD2, 5);
 	ctr = MAX_NBR_OVERFLOWS;
     }
 }
@@ -32,8 +33,9 @@ void cb(GPT_t* drv) {
 int main() {
     GPT_Config cfg = {MODE_NORMAL, DIVISOR_1024, 0xFF};
 
+    sei();
     gpt_init();
-    DDRB |= (1 << 5);
+    gpio_set_pin_mode(GPIOD2, 5, GPIO_OUT);
 
     gpt_start(GPTD1, &cfg);
 
