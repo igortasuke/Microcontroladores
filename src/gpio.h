@@ -34,18 +34,20 @@ typedef struct GPIO_struct GPIO_t;
 uint8_t gpio_read_port(GPIO_t *port);
 void gpio_write_port(GPIO_t *port, uint8_t value);
 void gpio_clear_port(GPIO_t *port);
+void gpio_set_port(GPIO_t *port);
 void gpio_toggle_port(GPIO_t *port);
-void gpio_set_port_mode(GPIO_t *port, GPIO_mode mode[PORT_WIDTH]);
+void gpio_set_port_mode(GPIO_t *port, GPIO_mode mode[]);
 
 /*
  * Functions to operate on a group of bits
  */
-uint8_t gpio_read_group(GPIO_t *port, uint8_t mask, uint8_t offset);
-void gpio_write_group(GPIO_t *port, uint8_t mask, uint8_t offset, uint8_t value);
-void gpio_clear_group(GPIO_t *port, uint8_t mask, uint8_t offset);
-void gpio_toggle_group(GPIO_t *port, uint8_t mask, uint8_t offset);
+uint8_t gpio_read_group(GPIO_t *port, uint8_t mask);
+void gpio_write_group(GPIO_t *port, uint8_t mask, uint8_t value);
+void gpio_clear_group(GPIO_t *port, uint8_t mask);
+void gpio_set_group(GPIO_t *port, uint8_t mask);
+void gpio_toggle_group(GPIO_t *port, uint8_t mask);
 void gpio_set_group_mode(GPIO_t *port, uint8_t bitmask,
-                         uint8_t offset, GPIO_mode mode[PORT_WIDTH]);
+                         GPIO_mode mode[]);
 
 /*
  * Functions to operate on a single bit
