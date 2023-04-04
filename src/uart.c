@@ -74,17 +74,22 @@ void uart_start(Uart_t* drv, Uart_Config_t* cfg,
  */
 void uart_stop(Uart_t* drv, uint8_t transmitter_off, uint8_t receiver_off) {
     /* DESENVOLVA SEU CÓDIGO AQUI */
-    /* Lembre-se de só retirnar depois da flag  */
+    /* Lembre-se de só retornar depois da flag TXC0 for setada
+       indicando que o último byte foi transmitido */
 }
 
 /*
  * Esta função escreve um caractere no buffer de transmissão se tiver
  * espaço e retorna. Se o buffer estiver cheio, espera liberar espaço.
  */
-uint8_t uart_writechar(Uart_t* drv, uint8_t ch) {
+void uart_writechar(Uart_t* drv, uint8_t ch) {
     while (is_cb_full(&drv->tx_buf))
         ;
     /* DESENVOLVA SEU CÓDIGO AQUI */
+
+    /* No final, habilitamos a interrupção de buffer de dados vazio
+       para que possamos saber quando transmitir o próximo byte */
+    drv->regs->ucsrb |= (1 << UDRIE0);
 }
 
 /*
@@ -103,7 +108,7 @@ uint8_t uart_write(Uart_t* drv, uint8_t* buf, uint8_t len) {
 
     /* No final, habilitamos a interrupção de buffer de dados vazio
        para que possamos saber quando transmitir o próximo byte */
-    drv->regs->ucsrb |= UDRIE0;
+    drv->regs->ucsrb |= (1 << UDRIE0);
 }
 
 /*

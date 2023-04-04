@@ -16,7 +16,7 @@ typedef struct Uart_Struct Uart_t;
    recepção de dados.  Este tipo consiste de um ponteiro para uma
    função que aceita como parâmetro o ponteiro para um
    driver de serial. */
-typedef uint16_t (*uart_rx_cb_t)(Uart_t*, uint8_t);
+typedef void (*uart_rx_cb_t)(Uart_t*, uint8_t);
 
 /* Tipo relativo à função de callback a ser usada na interrupção de
    transmissão de dados.  Este tipo consiste de um ponteiro para uma
@@ -32,7 +32,7 @@ typedef uint16_t (*uart_tx_cb_t)(Uart_t*);
    callback a ser usada nas interrupções. Se não for usar os
    callbacks, inicialize-os com o valor nulo (0) */
 typedef struct {
-    uint16_t freq;
+    uint32_t freq;
     uint8_t parity;
     uint8_t nbr_data_bits;
     uint8_t nbr_stop_bits;
@@ -54,7 +54,7 @@ void uart_start(Uart_t* drv, Uart_Config_t* cfg,
 void uart_stop(Uart_t* drv, uint8_t transmitter_off,
                uint8_t receiver_off);
 
-uint8_t uart_writechar(Uart_t* drv, uint8_t ch);
+void uart_writechar(Uart_t* drv, uint8_t ch);
 uint8_t uart_write(Uart_t* drv, uint8_t* buf, uint8_t len);
 uint16_t uart_read(Uart_t* drv);
 uint8_t uart_read_bytes(Uart_t* drv, uint8_t* buf, uint8_t len);
