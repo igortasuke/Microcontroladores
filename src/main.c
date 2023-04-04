@@ -3,6 +3,10 @@
 #include "timer.h"
 #include "gpio.h"
 
+/*
+* Pinagem
+*/
+#define PINO_LED 5
 
 /*
  * Constante definindo quantos eventos de overflow devem acontecer
@@ -35,7 +39,7 @@ int main() {
 
     sei();
     gpt_init();
-    gpio_set_pin_mode(GPIOD2, 5, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD2, PINO_LED, GPIO_OUT);
 
     gpt_start(GPTD1, &cfg);
 
