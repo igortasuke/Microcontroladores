@@ -1,7 +1,3 @@
-#ifndef __AVR_ATmega328P__
-    #define __AVR_ATmega328P__
-#endif
-
 #include <avr/interrupt.h>
 #include "timer.h"
 
@@ -12,11 +8,11 @@
  * registradores no endereçamento de memória
  */
 typedef struct {
-    volatile uint8_t tccra;
-    volatile uint8_t tccrb;
-    volatile uint8_t tcnt;
-    volatile uint8_t ocra;
-    volatile uint8_t ocrb;
+    volatile uint8_t tccra; // Timer/Counter Control Register A
+    volatile uint8_t tccrb; // Timer/Counter Control Register B
+    volatile uint8_t tcnt;  // Timer/Counter
+    volatile uint8_t ocra;  // Output Compare Register A
+    volatile uint8_t ocrb;  // Output Compare Register B
 } GPT_Regs_t;
 
 /*
@@ -25,13 +21,14 @@ typedef struct {
  * para as função abaixo trabalharem com os temporizadores 0 e 2.
  */
 struct GPT_Struct {
-    GPT_Regs_t* regs;
-    volatile uint8_t* tifr;
-    volatile uint8_t* timsk;
-    gpt_mode_t current_mode;
-    gpt_divisor_t divisor;
-    gpt_cb_t current_cb;
-    uint8_t is_oneshot;
+    GPT_Regs_t* regs;        // registradores
+    volatile uint8_t* tifr;  // timer flag
+    volatile uint8_t* timsk; // timer mascara
+    gpt_mode_t current_mode; // modo de operação
+    gpt_divisor_t divisor;   //
+    uint8_t max_nbr_overflows;
+    gpt_cb_t current_cb;     // callback atual 
+    uint8_t is_oneshot;      // 
     gpt_cb_t current_channel_cb[2];
     uint8_t is_channel_oneshot[2];
 };
@@ -54,6 +51,8 @@ void gpt_init(void) {
     GPT_obj3.tifr = &TIFR2;
     GPT_obj1.timsk = &TIMSK0;
     GPT_obj3.timsk = &TIMSK2;
+    GPT_obj1.max_nbr_overflows = 2;
+    GPT_obj3.max_nbr_overflows = 8;
 
     GPT_obj1.current_cb = 0;
     GPT_obj1.current_channel_cb[0] = GPT_obj1.current_channel_cb[1] = 0;
@@ -70,7 +69,49 @@ void gpt_init(void) {
  * contagem e, dependendo do modo, o topo da contagem.
  */
 void gpt_start(GPT_t *gptp, const GPT_Config *config) {
-    /* DESENVOLVA SEU CÓDIGO AQUI */
+    unit8_t MODE_MSK_A = 0b00000011;
+    unit8_t MODE_MSK_B = 0b00001000;
+    unit8_t DIV_MSK = 0b00000111;
+
+    gptp->current_mode = config->mode; // modo de operação
+    gptp->divisor = config->divisor;   // setando o divisor
+    *gptp->regs->ocra = config->top;   // valor topo da contagem
+
+    *gptp->regs->tccra &= ~(MODE_MSK_A);
+    *gptp->regs->tccrb &= ~(MODE_MSK_B);
+    switch (gptp->current_mode)
+    {
+        case MODE_NORMAL: // 0 00 
+            *gptp->regs->tccra |= (0x00 & MODE_MSK_A);
+        case MODE_CNC: //0 10
+            *gptp->regs->tccra |= (0x02 & MODE_MSK_A);
+        case MODE_FAST_PWM_MAX_TOP: // 0 11
+            *gptp->regs->tccra |= (0x03 & MODE_MSK_A);
+        case MODE_FAST_PWM_USER_TOP: //1 01
+            *gptp->regs->tccra |= (0x03 & MODE_MSK_A);
+            *gptp->regs->tccrb |= (MODE_MSK_B);  
+        default:
+            *gptp->regs->tccra |= (0x00 & MODE_MSK_A);
+    }
+
+    *gptp->regs->tccrb &= ~(DIV_MSK);   
+    switch (gptp->divisor)
+    {
+        case DIVISOR_1: // 001
+            *gptp->regs->tccrb |= (0x01 & DIV_MSK);
+        case DIVISOR_8: // 010
+            *gptp->regs->tccrb |= (0x02 & DIV_MSK);
+        case DIVISOR_64: // 011
+            *gptp->regs->tccrb |= (0x03 & DIV_MSK);
+        case DIVISOR_256: // 100
+            *gptp->regs->tccrb |= (0x04 & DIV_MSK);
+        case DIVISOR_1024: // 101
+            *gptp->regs->tccrb |= (0x05 & DIV_MSK);
+        default:
+            *gptp->regs->tccrb |= (0x01 & DIV_MSK);
+    }
+
+    /* ACHO QUE TÁ OK */
 }
 
 /*
@@ -79,7 +120,11 @@ void gpt_start(GPT_t *gptp, const GPT_Config *config) {
  * ocorrerão pelo contador estar parado)
  */
 void gpt_stop(GPT_t *gptp) {
-    /* DESENVOLVA SEU CÓDIGO AQUI */
+    unit8_t CS_MSK = 0b00000111;
+
+    gptp->regs->tccrb &= ~(CS_MSK);
+
+    /* ACHO QUE TÁ OK */
 }
 
 /*
@@ -118,7 +163,10 @@ uint8_t gpt_stop_notification(GPT_t *gptp) {
  * ser mudado e deve ser ignorado.
  */
 uint8_t gpt_change_interval(GPT_t *gptp, uint8_t interval) {
-    /* DESENVOLVA SEU CÓDIGO AQUI */
+    if (gptp->current_mode != MODE_NORMAL)
+        *gptp->regs->ocra = interval;
+
+    /* ACHO QUE TÁ OK */
 }
 
 /*
@@ -132,7 +180,15 @@ uint8_t gpt_change_interval(GPT_t *gptp, uint8_t interval) {
  * parâmetro channel é 0 para o primeiro canal e 1 para o segundo.
  */
 uint8_t gpt_enable_pwm_channel(GPT_t *gptp, uint8_t channel, uint8_t width) {
-    /* DESENVOLVA SEU CÓDIGO AQUI */
+    uint8_t top = *gptp->regs->ocra;
+
+    *gptp->timsk |= (1 << TOIEV0);
+    if (!channel)
+        *gptp->regs->ocra = width / (top + 1);
+        *gptp->timsk |= (1 << OCIE0A);
+    else
+        *gptp->regs->ocrb = width / (top + 1);
+        *gptp->timsk |= (1 << OCIE0B);
 }
 
 /*
@@ -141,7 +197,13 @@ uint8_t gpt_enable_pwm_channel(GPT_t *gptp, uint8_t channel, uint8_t width) {
  * a contar.
  */
 void gpt_disable_pwm_channel(GPT_t *gptp, uint8_t channel) {
-    /* DESENVOLVA SEU CÓDIGO AQUI */
+    *gptp->timsk &= ~(1 << TOIEV0);
+    if (!channel)
+        *gptp->timsk &= ~(1 << OCIE0A);
+    else
+        *gptp->timsk &= ~(1 << OCIE0B);
+
+    /* ACHO QUE TÁ OK */
 }
 
 /*
@@ -156,7 +218,18 @@ void gpt_disable_pwm_channel(GPT_t *gptp, uint8_t channel) {
 uint8_t gpt_start_channel_notification(GPT_t *gptp, uint8_t channel,
                                        uint8_t interval,
                                        gpt_cb_t cb, uint8_t is_oneshot) {
-    /* DESENVOLVA SEU CÓDIGO AQUI */
+    gptp->current_cb = cb;
+    gptp->is_oneshot = is_oneshot;
+    if (!is_oneshot)
+        gptp->current_cb(gptp);
+    gptp->regs->ocra = interval;
+
+    if (channel) // channel 1 é a interrupção do OCIE0B 
+        *gptp->tifr |= (1 << OCF0B);
+        *gptp->timsk |= (1 << OCIE0B)
+    else
+        *gptp->tifr |= (1 << OCF0A);
+        *gptp->timsk |= (1 << OCIE0A)
 }
 
 /*
@@ -164,7 +237,12 @@ uint8_t gpt_start_channel_notification(GPT_t *gptp, uint8_t channel,
  * (compare match). Obserqve que o contador deve continuar a contar.
  */
 void gpt_stop_channel_notification(GPT_t *gptp, uint8_t channel) {
-    /* DESENVOLVA SEU CÓDIGO AQUI */
+    if (channel) // channel 1 é a interrupção do OCIE0B 
+        *gptp->timsk &= ~(1 << OCIE0B)
+    else
+        *gptp->timsk &= ~(1 << OCIE0A)
+
+    /* ACHO QUE TÁ OK */
 }
 
 
@@ -210,6 +288,52 @@ ISR(TIMER0_COMPB_vect) {
 
     if (GPT_obj1.is_channel_oneshot[1])
         TIMSK0 &= ~(1 << OCIE0B);
+
+    /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
+}
+
+/*
+ * Rotina de tratamento da interrupção de overflow do temporizador
+ * 2. Se o ponteiro para a função de callback for não-nulo, chama a
+ * função, e se o callback for oneshot, desativa a interrupção (mas
+ * não o temporizador, pois pode ainda estar gerando algum sinal PWM.
+ */
+ISR(TIMER2_OVF_vect) {
+    if (GPT_obj3.current_cb)
+        GPT_obj3.current_cb(&GPT_obj3);
+
+    if (GPT_obj3.is_oneshot)
+        TIMSK2 &= ~(1 << TOIE2);
+
+    /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
+}
+
+/*
+ * Rotina de tratamento da interrupção de comparação do 1o canal. Se o
+ * ponteiro para a função de callback do canal for não-nulo, chama a
+ * função, e se o callback for oneshot, desativa a interrupção
+ */
+ISR(TIMER2_COMPA_vect) {
+    if (GPT_obj3.current_channel_cb[0])
+        GPT_obj3.current_channel_cb[0](&GPT_obj3);
+
+    if (GPT_obj3.is_channel_oneshot[0])
+        TIMSK2 &= ~(1 << OCIE2A);
+
+    /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
+}
+
+/*
+ * Rotina de tratamento da interrupção de comparação do 2o canal. Se o
+ * ponteiro para a função de callback do canal for não-nulo, chama a
+ * função, e se o callback for oneshot, desativa a interrupção
+ */
+ISR(TIMER2_COMPB_vect) {
+    if (GPT_obj3.current_channel_cb[1])
+        GPT_obj3.current_channel_cb[1](&GPT_obj3);
+
+    if (GPT_obj3.is_channel_oneshot[1])
+        TIMSK2 &= ~(1 << OCIE2B);
 
     /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
 }
