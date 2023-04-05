@@ -38,6 +38,13 @@ typedef enum {
     MODE_ON_DEMAND_FAST,
 } Oper_mode;
 
+typedef enum{
+    MICROSTEP1,
+    MICROSTEP2,
+    MICROSTEP3,
+    MICROSTEP4
+} Coil;
+
 int8_t velocity;
 uint8_t instantaneous;
 uint8_t step;
@@ -47,8 +54,10 @@ uint8_t coil1;
 uint8_t coil2;
 uint8_t coil3;
 uint8_t coil4;
+uint8_t cb_achieved;
 
 Oper_mode mode;
+Coil currentCoil;
 
 /*
  * Função de callback chamada a todo evento de overflow pelas
@@ -65,15 +74,57 @@ void cb(GPT_t* drv) {
     }
 }
 
+void motor_run(){
+    switch (currentCoil)
+    {
+        case (MICROSTEP1):
+            if(cb_achieved){
+                gpio_write_group(GPIOD2, 0x1, coil1);
+                cb_achieved = 0;
+                currentCoil += 1;
+            }
+        break;
+        
+        case (MICROSTEP2):
+            if(cb_achieved){
+                gpio_write_group(GPIOD2, 0x1, coil2);
+                cb_achieved = 0;
+                currentCoil += 1;
+            }
+        break;
+
+        case (MICROSTEP3):
+            if(cb_achieved){
+                gpio_write_group(GPIOD2, 0x1, coil3);
+                cb_achieved = 0;
+                currentCoil += 1;
+            }
+        break;
+
+        case (MICROSTEP4):
+            if(cb_achieved){
+                gpio_write_group(GPIOD2, 0x1, coil4);
+                cb_achieved = 0;
+                currentCoil = 0;
+            }
+        break;
+
+    default:
+        currentCoil = 0;
+        break;
+    }
+}
+
 /*
  * Função main que simplesmente configura o pino digital PB5 para
  * saída e o temporizador 0 para gerar eventos de overflow a uma
  * frequência de aproximadamente a 16 kHz.
  */
 int main() {
-    GPT_Config cfg = {MODE_NORMAL, DIVISOR_1024, 0xFF};
+    GPT_Config cfg = {MODE_CTC, DIVISOR_1024, 0xFF};
 
-    sei();
+    sei();   //habilita interrupção (função do compilador)
+             //cli() desabilita interrupção
     gpt_init();
     
     gpio_set_group_mode(GPIOD2, 0xF, GPIO_OUT);
@@ -131,11 +182,7 @@ int main() {
                         instantaneous += 5;
                         //delay 50passos/s²
                     }
-                    gpio_write_group(GPIOD2, 0x1, coil1);
-                    gpio_write_group(GPIOD2, 0x2, coil2);
-                    gpio_write_group(GPIOD2, 0x3, coil3);
-                    gpio_write_group(GPIOD2, 0x4, coil4);
-                    //delay...
+                    motor_run();
                 }
             break;
             case MODE_ON_DEMAND_SLOW:
@@ -148,10 +195,7 @@ int main() {
                     //delay debounce...
                 } 
                 if(start && cont < abs(velocity)){     
-                    gpio_write_group(GPIOD2, 0x1, coil1);
-                    gpio_write_group(GPIOD2, 0x2, coil2);
-                    gpio_write_group(GPIOD2, 0x3, coil3);
-                    gpio_write_group(GPIOD2, 0x4, coil4);
+                    motor_run();
                     cont++;
                     //delay 2 passos/s...
                 }
