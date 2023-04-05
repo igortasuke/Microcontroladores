@@ -1,3 +1,7 @@
+#ifndef __AVR_ATmega328P__
+    #define __AVR_ATmega328P__
+#endif
+
 #include <stdint.h>
 #include <avr/interrupt.h>
 #include "timer.h"
@@ -34,11 +38,15 @@ typedef enum {
     MODE_ON_DEMAND_FAST,
 } Oper_mode;
 
-int velocity;
+int8_t velocity;
 uint8_t instantaneous;
 uint8_t step;
-bool start;
+uint8_t start;
 uint8_t cont;
+uint8_t coil1;
+uint8_t coil2;
+uint8_t coil3;
+uint8_t coil4;
 
 Oper_mode mode;
 
@@ -78,16 +86,16 @@ int main() {
 
     while (1){       
         if(velocity > 0){                           //define sentido de rotação
-            uint8_t coil1 = 0x1;
-            uint8_t coil2 = 0x2;
-            uint8_t coil3 = 0x4;
-            uint8_t coil4 = 0x8;
+            coil1 = 0x1;
+            coil2 = 0x2;
+            coil3 = 0x4;
+            coil4 = 0x8;
         }
         else if(velocity < 0){
-            uint8_t coil1 = 0x8;
-            uint8_t coil2 = 0x4;
-            uint8_t coil3 = 0x2;
-            uint8_t coil4 = 0x1;
+            coil1 = 0x8;
+            coil2 = 0x4;
+            coil3 = 0x2;
+            coil4 = 0x1;
         }
 
         if(!PIN_MODE){
@@ -106,10 +114,10 @@ int main() {
         }
 
         switch(mode){
-            case(MODE_OFF){       
+            case MODE_OFF:       
                 gpio_write_group(GPIOD2, 0xF, 0x0);
-            }
-            case(MODE_CONTINUOUS){                  
+            break;
+            case MODE_CONTINUOUS:                  
                 if(!PIN_INCREMENT && velocity < 50){
                     velocity += 5;
                     //delay debounce...
@@ -129,8 +137,8 @@ int main() {
                     gpio_write_group(GPIOD2, 0x4, coil4);
                     //delay...
                 }
-            }
-            case(MODE_ON_DEMAND_SLOW){
+            break;
+            case MODE_ON_DEMAND_SLOW:
                 if(!PIN_INCREMENT){
                     velocity += 5;
                     //delay debounce...
@@ -139,7 +147,7 @@ int main() {
                     velocity -= 5;
                     //delay debounce...
                 } 
-                if(start %% cont < abs(velocity)){     
+                if(start && cont < abs(velocity)){     
                     gpio_write_group(GPIOD2, 0x1, coil1);
                     gpio_write_group(GPIOD2, 0x2, coil2);
                     gpio_write_group(GPIOD2, 0x3, coil3);
@@ -147,8 +155,8 @@ int main() {
                     cont++;
                     //delay 2 passos/s...
                 }
-            }
-            case(MODE_ON_DEMAND_FAST){
+            break;
+            case MODE_ON_DEMAND_FAST:
                 if(!PIN_INCREMENT){
                     velocity += 5;
                     //delay debounce...
@@ -157,7 +165,7 @@ int main() {
                     velocity -= 5;
                     //delay debounce...
                 } 
-                if(start %% cont < abs(velocity)){     
+                if(start && cont < abs(velocity)){     
                     gpio_write_group(GPIOD2, 0x1, coil1);
                     gpio_write_group(GPIOD2, 0x2, coil2);
                     gpio_write_group(GPIOD2, 0x3, coil3);
@@ -165,7 +173,7 @@ int main() {
                     cont++;
                     //delay 10 passos/s...
                 }
-            }
+            break;
         }
     }
 }
