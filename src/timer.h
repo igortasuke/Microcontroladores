@@ -8,7 +8,7 @@ typedef void (*gpt_cb_t)(GPT_t* drv);
 
 typedef enum {
     MODE_NORMAL,
-    MODE_CNC,
+    MODE_CTC,
     MODE_FAST_PWM_MAX_TOP,
     MODE_FAST_PWM_USER_TOP
 } gpt_mode_t;
