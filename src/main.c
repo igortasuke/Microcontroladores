@@ -69,7 +69,8 @@ void cb(GPT_t* drv) {
     static int ctr = MAX_NBR_OVERFLOWS;
     
     if (--ctr == 0) {
-	gpio_toggle_pin(GPIOD2, 5);
+        motor_run();
+        cb_achieved = 1;
 	ctr = MAX_NBR_OVERFLOWS;
     }
 }
@@ -123,8 +124,8 @@ void motor_run(){
 int main() {
     GPT_Config cfg = {MODE_CTC, DIVISOR_1024, 0xFF};
 
-    sei();   //habilita interrupção (função do compilador)
-             //cli() desabilita interrupção
+    sei();  //habilita interrupção (função do compilador)
+            //cli() desabilita interrupção
     gpt_init();
     
     gpio_set_group_mode(GPIOD2, 0xF, GPIO_OUT);

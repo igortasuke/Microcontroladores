@@ -1,3 +1,7 @@
+#ifndef __AVR_ATmega328P__
+    #define __AVR_ATmega328P__
+#endif
+
 #include <avr/interrupt.h>
 #include "timer.h"
 
@@ -69,49 +73,49 @@ void gpt_init(void) {
  * contagem e, dependendo do modo, o topo da contagem.
  */
 void gpt_start(GPT_t *gptp, const GPT_Config *config) {
-    unit8_t MODE_MSK_A = 0b00000011;
-    unit8_t MODE_MSK_B = 0b00001000;
-    unit8_t DIV_MSK = 0b00000111;
+    uint8_t MODE_MSK_A = 0b00000011;
+    uint8_t MODE_MSK_B = 0b00001000;
+    uint8_t DIV_MSK = 0b00000111;
 
     gptp->current_mode = config->mode; // modo de operação
     gptp->divisor = config->divisor;   // setando o divisor
-    *gptp->regs->ocra = config->top;   // valor topo da contagem
+    gptp->regs->ocra = config->top;   // valor topo da contagem
 
-    *gptp->regs->tccra &= ~(MODE_MSK_A);
-    *gptp->regs->tccrb &= ~(MODE_MSK_B);
+    gptp->regs->tccra &= ~(MODE_MSK_A);
+    gptp->regs->tccrb &= ~(MODE_MSK_B);
     switch (gptp->current_mode)
     {
         case MODE_NORMAL: // 0 00 
-            *gptp->regs->tccra |= (0x00 & MODE_MSK_A);
-        case MODE_CNC: //0 10
-            *gptp->regs->tccra |= (0x02 & MODE_MSK_A);
+            gptp->regs->tccra |= (0x00 & MODE_MSK_A);
+        case MODE_CTC: //0 10
+            gptp->regs->tccra |= (0x02 & MODE_MSK_A);
         case MODE_FAST_PWM_MAX_TOP: // 0 11
-            *gptp->regs->tccra |= (0x03 & MODE_MSK_A);
+            gptp->regs->tccra |= (0x03 & MODE_MSK_A);
         case MODE_FAST_PWM_USER_TOP: //1 01
-            *gptp->regs->tccra |= (0x03 & MODE_MSK_A);
-            *gptp->regs->tccrb |= (MODE_MSK_B);  
+            gptp->regs->tccra |= (0x03 & MODE_MSK_A);
+            gptp->regs->tccrb |= (0x08 & MODE_MSK_B);  
         default:
-            *gptp->regs->tccra |= (0x00 & MODE_MSK_A);
+            gptp->regs->tccra |= (0x00 & MODE_MSK_A);
     }
 
-    *gptp->regs->tccrb &= ~(DIV_MSK);   
+    gptp->regs->tccrb &= ~(DIV_MSK);   
     switch (gptp->divisor)
     {
         case DIVISOR_1: // 001
-            *gptp->regs->tccrb |= (0x01 & DIV_MSK);
+            gptp->regs->tccrb |= (0x01 & DIV_MSK);
         case DIVISOR_8: // 010
-            *gptp->regs->tccrb |= (0x02 & DIV_MSK);
+            gptp->regs->tccrb |= (0x02 & DIV_MSK);
         case DIVISOR_64: // 011
-            *gptp->regs->tccrb |= (0x03 & DIV_MSK);
+            gptp->regs->tccrb |= (0x03 & DIV_MSK);
         case DIVISOR_256: // 100
-            *gptp->regs->tccrb |= (0x04 & DIV_MSK);
+            gptp->regs->tccrb |= (0x04 & DIV_MSK);
         case DIVISOR_1024: // 101
-            *gptp->regs->tccrb |= (0x05 & DIV_MSK);
+            gptp->regs->tccrb |= (0x05 & DIV_MSK);
         default:
-            *gptp->regs->tccrb |= (0x01 & DIV_MSK);
+            gptp->regs->tccrb |= (0x01 & DIV_MSK);
     }
 
-    /* ACHO QUE TÁ OK */
+    /* ACHO QUE TÁ OK. O outro eu ajeitou só uns detalhes e também acha que tá ok */
 }
 
 /*
@@ -120,11 +124,11 @@ void gpt_start(GPT_t *gptp, const GPT_Config *config) {
  * ocorrerão pelo contador estar parado)
  */
 void gpt_stop(GPT_t *gptp) {
-    unit8_t CS_MSK = 0b00000111;
+    uint8_t CS_MSK = 0b00000111;
 
     gptp->regs->tccrb &= ~(CS_MSK);
 
-    /* ACHO QUE TÁ OK */
+    /* ACHO QUE TÁ OK. O outro eu também acha*/
 }
 
 /*
@@ -164,9 +168,9 @@ uint8_t gpt_stop_notification(GPT_t *gptp) {
  */
 uint8_t gpt_change_interval(GPT_t *gptp, uint8_t interval) {
     if (gptp->current_mode != MODE_NORMAL)
-        *gptp->regs->ocra = interval;
+        gptp->regs->ocra = interval;
 
-    /* ACHO QUE TÁ OK */
+    /* ACHO QUE TÁ OK. Yo tambíen */
 }
 
 /*
@@ -180,16 +184,20 @@ uint8_t gpt_change_interval(GPT_t *gptp, uint8_t interval) {
  * parâmetro channel é 0 para o primeiro canal e 1 para o segundo.
  */
 uint8_t gpt_enable_pwm_channel(GPT_t *gptp, uint8_t channel, uint8_t width) {
-    uint8_t top = *gptp->regs->ocra;
+    uint8_t top = gptp->regs->ocra;
 
-    *gptp->timsk |= (1 << TOIEV0);
-    if (!channel)
-        *gptp->regs->ocra = width / (top + 1);
+    *gptp->timsk |= (1 << TOIE0);
+    if (!channel){
+        gptp->regs->ocra = width / (top + 1);
         *gptp->timsk |= (1 << OCIE0A);
-    else
-        *gptp->regs->ocrb = width / (top + 1);
+    }
+    else{
+        gptp->regs->ocrb = width / (top + 1);
         *gptp->timsk |= (1 << OCIE0B);
+    }
 }
+
+/*Yo acho que tá faltando coisa*/
 
 /*
  * Função para parar a geração do sinal PWM no canal
@@ -197,13 +205,13 @@ uint8_t gpt_enable_pwm_channel(GPT_t *gptp, uint8_t channel, uint8_t width) {
  * a contar.
  */
 void gpt_disable_pwm_channel(GPT_t *gptp, uint8_t channel) {
-    *gptp->timsk &= ~(1 << TOIEV0);
+    *gptp->timsk &= ~(1 << TOIE0);
     if (!channel)
         *gptp->timsk &= ~(1 << OCIE0A);
     else
         *gptp->timsk &= ~(1 << OCIE0B);
 
-    /* ACHO QUE TÁ OK */
+    /* ACHO QUE TÁ OK. Depois eu vejo */
 }
 
 /*
@@ -224,13 +232,17 @@ uint8_t gpt_start_channel_notification(GPT_t *gptp, uint8_t channel,
         gptp->current_cb(gptp);
     gptp->regs->ocra = interval;
 
-    if (channel) // channel 1 é a interrupção do OCIE0B 
+    if (channel){ // channel 1 é a interrupção do OCIE0B 
         *gptp->tifr |= (1 << OCF0B);
-        *gptp->timsk |= (1 << OCIE0B)
-    else
+        *gptp->timsk |= (1 << OCIE0B);
+    }
+    else{
         *gptp->tifr |= (1 << OCF0A);
-        *gptp->timsk |= (1 << OCIE0A)
+        *gptp->timsk |= (1 << OCIE0A);
+    }
 }
+
+/*Depois eu olho*/
 
 /*
  * Função para parar as notificações de igualdade na comparação
@@ -242,7 +254,7 @@ void gpt_stop_channel_notification(GPT_t *gptp, uint8_t channel) {
     else
         *gptp->timsk &= ~(1 << OCIE0A)
 
-    /* ACHO QUE TÁ OK */
+    /* ACHO QUE TÁ OK. Depois eu vejo */
 }
 
 
