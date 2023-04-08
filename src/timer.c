@@ -250,9 +250,9 @@ uint8_t gpt_start_channel_notification(GPT_t *gptp, uint8_t channel,
  */
 void gpt_stop_channel_notification(GPT_t *gptp, uint8_t channel) {
     if (channel) // channel 1 é a interrupção do OCIE0B 
-        *gptp->timsk &= ~(1 << OCIE0B)
+        *gptp->timsk &= ~(1 << OCIE0B);
     else
-        *gptp->timsk &= ~(1 << OCIE0A)
+        *gptp->timsk &= ~(1 << OCIE0A);
 
     /* ACHO QUE TÁ OK. Depois eu vejo */
 }
