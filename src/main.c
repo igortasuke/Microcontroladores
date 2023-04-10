@@ -9,6 +9,11 @@
 #include "uteis.h"
 #include <stdlib.h>
 
+/*
+* Entradas
+
+PB0, PD4, PD5 e PD6
+*/
 
 /*
 * Pinos de saída PORT D
@@ -93,7 +98,7 @@ void cb_debounce(GPT_t* drv) {
     if (++ctr == overflows_debouce) {
 	    gpt_stop(GPTD3);
 	    ctr = 0;
-        PCIFR |= ~(1 << PCIF0); // habilita a interrupção da porta B
+        PCICR &= ~(1 << PCIE0); // habilita a interrupção da porta B
     }
 }
 
@@ -109,38 +114,44 @@ ISR(PCINT0_vect) {
     // ler valor da porta
     new_value = PINB; //checar registrador da porta B
     chg = new_value & old_value;
-    !start;
-    gpio_write_pin(GPIOD4, 0x10, start);
-    if((~chg & 0x1) && (old_value & 0x1)) // PIN_INCREMENT pino 0
+    //!start;
+    gpio_write_pin(GPIOD2, 0, 1);
+    if((~chg & 0x4) && (old_value & 0x4)){ // PIN_INCREMENT pino 0
         if(velocity < 50){
             velocity += 5;
-            set_microstep_speed(GPTD1, 15);
+            set_microstep_speed(GPTD1, 15);   
         }
-        
-    if((~chg & 0x2) && (old_value & 0x2)) // PIN_DECREMENT pino 1
+        gpio_write_pin(GPIOD4, 4, 1);
+    }   
+    if((~chg & 0x8) && (old_value & 0x8)){ // PIN_DECREMENT pino 1
         if(velocity > -50){
             velocity -= 5;
             set_microstep_speed(GPTD1, 15);
         }
+        gpio_write_pin(GPIOD4, 5, 1);
+    }  
         
-    if((~chg & 0x4) && (old_value & 0x4)){ // PIN_MODE pino 2
+    if((~chg & 0x10) && (old_value & 0x10)){ // PIN_MODE pino 2
         mode += 1;
         mode %= 4;
         velocity = 0;
         instantaneous = 0;
         start = 0;
         cont = 0;
+        gpio_write_pin(GPIOD4, 6, 1);
     }
-    if((~chg & 0x8) && (old_value & 0x8)){ // PIN_ENTER pino 3
+  
+    if((~chg & 0x20) && (old_value & 0x20)){ // PIN_ENTER pino 3
         !start;
-        gpio_write_pin(GPIOD4, 0x10, start);
+        //gpio_write_pin(GPIOD4, 0, start);
+        gpio_write_pin(GPIOD4, 7, 1);  
     }
 
     old_value = new_value;
     // chama o temporizador
     gpt_start(GPTD3, &cfg_debounce);
     // habilita interrupção do temporizador
-    gpt_start_notification(GPTD3, cb_debounce, 1);
+    gpt_start_notification(GPTD3, cb_debounce, 0);
 
 }
 
@@ -198,26 +209,26 @@ int main() {
 
     sei();   //habilita interrupção (função do compilador)
              //cli() desabilita interrupção
-    //PORTB |= old_value; //(0x0F); 
-    PCICR |= (1 << PCIE0); // habilita a interrupção da porta B
-    PCMSK0 |= (0xF); // habilita a interrupção dos pinos 0, 1, 2 e 3 da porta B
 
     gpt_init();
     
     //gpio_set_group_mode(GPIOD4, 0xF, mode_out);
+    //gpio_set_pin_mode(GPIOD4, 0, GPIO_OUT);
+    //gpio_set_pin_mode(GPIOD4, 1, GPIO_OUT);
+    //gpio_set_pin_mode(GPIOD4, 2, GPIO_OUT);
     gpio_set_pin_mode(GPIOD2, 0, GPIO_OUT);
-    gpio_set_pin_mode(GPIOD2, 1, GPIO_OUT);
-    gpio_set_pin_mode(GPIOD2, 2, GPIO_OUT);
-    gpio_set_pin_mode(GPIOD2, 3, GPIO_OUT);
-    gpio_set_pin_mode(GPIOD2, 4, GPIO_OUT);
-    gpio_set_pin_mode(GPIOD2, 5, GPIO_OUT);
-    gpio_set_pin_mode(GPIOD2, 6, GPIO_OUT);
-    gpio_set_pin_mode(GPIOD2, 7, GPIO_OUT);
-    gpio_clear_port(GPIOD2);
-    gpio_set_port(GPIOD2);
+    gpio_set_pin_mode(GPIOD4, 4, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD4, 5, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD4, 6, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD4, 7, GPIO_OUT);
+    gpio_clear_port(GPIOD4);
+    //gpio_set_group(GPIOD4, 0xF0);
     //gpio_set_pin(GPIOD4, 6);
 
-    ///gpio_set_group_mode(GPIOD2, 0xF0, mode_pullup);
+    gpio_set_group_mode(GPIOD2, 0b00111100, mode_pullup);
+
+    PCICR |= (1 << PCIE0); // habilita a interrupção da porta B
+    PCMSK0 |= 0b00111100; // habilita a interrupção dos pinos 0, 1, 2 e 3 da porta B
 
     gpt_start(GPTD1, &cfg);
 
@@ -242,7 +253,7 @@ int main() {
 
         switch(mode){
             case MODE_OFF:       
-                gpio_write_group(GPIOD4, 0xF, 0x0);
+                //gpio_write_group(GPIOD4, 0xF, 0x0);
             break;
             case MODE_CONTINUOUS:                  
                 if(start){     
@@ -263,18 +274,18 @@ int main() {
             break;
             case MODE_ON_DEMAND_FAST:
                 if(start && cont < abs(velocity)){     
-                    gpio_write_group(GPIOD4, 0x1, coil1);
-                    gpio_write_group(GPIOD4, 0x2, coil2);
-                    gpio_write_group(GPIOD4, 0x3, coil3);
-                    gpio_write_group(GPIOD4, 0x4, coil4);
+                    //gpio_write_group(GPIOD4, 0x1, coil1);
+                    //gpio_write_group(GPIOD4, 0x2, coil2);
+                    //gpio_write_group(GPIOD4, 0x3, coil3);
+                    //gpio_write_group(GPIOD4, 0x4, coil4);
                     set_microstep_speed(GPTD1, 10);
                     motor_run();  
                     cont++;
                     //delay 10 passos/s...
                 }
             break;
-            default:
-                gpio_write_group(GPIOD4, 0xF, 0x0);
+            //default:
+                //gpio_write_group(GPIOD4, 0xF, 0x0);
         }
     }
 }
