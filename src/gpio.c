@@ -54,11 +54,11 @@ void gpio_clear_group(GPIO_t *port, uint8_t mask) {
 }
 
 void gpio_set_group(GPIO_t *port, uint8_t mask) {
-    port->port |= ~mask;
+    port->port |= mask;
 }
 
 void gpio_toggle_group(GPIO_t *port, uint8_t mask) {
-    port->pin |= ~mask;
+    port->pin |= mask;
 }
 
 void gpio_set_group_mode(GPIO_t *port, uint8_t bitmask,
