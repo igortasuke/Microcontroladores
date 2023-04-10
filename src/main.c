@@ -10,27 +10,33 @@
 #include <stdlib.h>
 
 /*
-* Entradas
+* *****Saídas
 
-PB0, PD4, PD5 e PD6
+PB0, PD4, PD5, PD6 e PD7
+
+*******ENTRADAS
+
+PB2, PB3, PB4 e PB5
 */
 
 /*
 * Pinos de saída PORT D
-*/
+
 #define PIN_AP 0
+#define PORT_AP GPIOD2
 #define PIN_BP 1
 #define PIN_AN 2
 #define PIN_BN 3
 
-/*
+
 * Pinos de Entrada PORT B
-*/
+
 
 #define PIN_INCREMENT PINB0
 #define PIN_DECREMENT PINB1
 #define PIN_MODE PINB2
 #define PIN_ENTER PINB3
+*/
 
 /*
  * Constante definindo quantos eventos de overflow devem acontecer
@@ -161,7 +167,7 @@ void motor_run(void){
     {
         case (MICROSTEP1):
             if(cb_achieved){
-                gpio_write_group(GPIOD4, 0x1, coil1);
+                gpio_write_group(GPIOD4, 0xF0, coil1);
                 cb_achieved = 0;
                 currentCoil += 1;
             }
@@ -169,7 +175,7 @@ void motor_run(void){
         
         case (MICROSTEP2):
             if(cb_achieved){
-                gpio_write_group(GPIOD4, 0x2, coil2);
+                gpio_write_group(GPIOD4, 0xF0, coil2);
                 cb_achieved = 0;
                 currentCoil += 1;
             }
@@ -177,7 +183,7 @@ void motor_run(void){
 
         case (MICROSTEP3):
             if(cb_achieved){
-                gpio_write_group(GPIOD4, 0x4, coil3);
+                gpio_write_group(GPIOD4, 0xF0, coil3);
                 cb_achieved = 0;
                 currentCoil += 1;
             }
@@ -185,7 +191,7 @@ void motor_run(void){
 
         case (MICROSTEP4):
             if(cb_achieved){
-                gpio_write_group(GPIOD4, 0x8, coil4);
+                gpio_write_group(GPIOD4, 0xF0, coil4);
                 cb_achieved = 0;
                 currentCoil = 0;
             }
@@ -203,6 +209,7 @@ void motor_run(void){
  * frequência de aproximadamente a 16 kHz.
  */
 int main() {
+    mode = MODE_OFF;
     GPT_Config cfg = {MODE_CTC, DIVISOR_1024, 0xFF};//, 0
     GPIO_mode mode_pullup[] = {GPIO_IN_PULLUP, GPIO_IN_PULLUP, GPIO_IN_PULLUP, GPIO_IN_PULLUP};
     GPIO_mode mode_out[] = {GPIO_OUT, GPIO_OUT, GPIO_OUT, GPIO_OUT};
@@ -228,7 +235,7 @@ int main() {
     gpio_set_group_mode(GPIOD2, 0b00111100, mode_pullup);
 
     PCICR |= (1 << PCIE0); // habilita a interrupção da porta B
-    PCMSK0 |= 0b00111100; // habilita a interrupção dos pinos 0, 1, 2 e 3 da porta B
+    PCMSK0 |= 0b00111100; // habilita a interrupção dos pinos 2, 3, 4 e 5 da porta B
 
     gpt_start(GPTD1, &cfg);
 
@@ -239,16 +246,16 @@ int main() {
 
     while (1){       
         if(velocity > 0){                           //define sentido de rotação
-            coil1 = 0x1;
-            coil2 = 0x2;
-            coil3 = 0x4;
-            coil4 = 0x8;
+            coil1 = 0x10;
+            coil2 = 0x20;
+            coil3 = 0x40;
+            coil4 = 0x80;
         }
         else if(velocity < 0){
-            coil1 = 0x8;
-            coil2 = 0x4;
-            coil3 = 0x2;
-            coil4 = 0x1;
+            coil1 = 0x80;
+            coil2 = 0x40;
+            coil3 = 0x20;
+            coil4 = 0x10;
         }
 
         switch(mode){
