@@ -9,34 +9,23 @@
 #include "uteis.h"
 #include <stdlib.h>
 
-/*
-* *****Saídas
-
-PB0, PD4, PD5, PD6 e PD7
-
-*******ENTRADAS
-
-PB2, PB3, PB4 e PB5
-*/
 
 /*
 * Pinos de saída PORT D
-
+*/
 #define PIN_AP 0
-#define PORT_AP GPIOD2
 #define PIN_BP 1
 #define PIN_AN 2
 #define PIN_BN 3
 
-
+/*
 * Pinos de Entrada PORT B
-
+*/
 
 #define PIN_INCREMENT PINB0
 #define PIN_DECREMENT PINB1
 #define PIN_MODE PINB2
 #define PIN_ENTER PINB3
-*/
 
 /*
  * Constante definindo quantos eventos de overflow devem acontecer
@@ -58,11 +47,11 @@ typedef enum{
     MICROSTEP4
 } Coil;
 
-int8_t velocity;
-uint8_t instantaneous;
-uint8_t step;
-uint8_t start;
-uint8_t cont;
+int8_t velocity = 0;
+int8_t final_speed = 0;
+int8_t steps = 0;
+uint8_t start = 0;
+uint8_t cont = 0;
 uint8_t coil1;
 uint8_t coil2;
 uint8_t coil3;
@@ -73,8 +62,7 @@ uint8_t old_value = 0x0;
 Oper_mode mode;
 Coil currentCoil;
 
-uint8_t overflows_debouce = 17;
-uint8_t overflows_t0 = 32;
+uint8_t overflows_debouce = 7;
 
 // GPT_Config cfg0 = {MODE_CTC, DIVISOR_1024, 194, 3};
 
@@ -97,17 +85,13 @@ void cb(GPT_t* drv) {
 }
 
 void cb_aceleracao(GPT16_t* drv) {
-    static int ctr = 0;
-    uint8_t overflows;
 
-    overflows = get_nbr_overflows();
-    if (++ctr == overflows) {
-        if (velocity < 50)
+    if (!(final_speed & (1 << 7)))
+        if (velocity < final_speed)
 	        velocity += 5;
-        else
-            gpt_stop_t1(drv);
-        ctr = 0;
-    }
+    else
+        if (velocity > final_speed)
+	        velocity -= 5;
 }
 
 void cb_debounce(GPT_t* drv) {
@@ -120,6 +104,7 @@ void cb_debounce(GPT_t* drv) {
     }
 }
 
+
 ISR(PCINT0_vect) {
     uint8_t new_value;
     uint8_t chg;
@@ -130,28 +115,29 @@ ISR(PCINT0_vect) {
     // ler valor da porta
     new_value = PINB; //checar registrador da porta B
     chg = new_value & old_value;
-
+    
     if((~chg & 0x04) && (old_value & 0x04)){ // PIN_INCREMENT pino 2
-        if(velocity < 50){
-            velocity += 5;
-            if(mode == MODE_CONTINUOUS && velocity != 0)
-                set_microstep_speed(GPTD1, velocity);
+        if(final_speed < 50){
+            final_speed += 5;  
         }
+        steps += 1;
     }   
     if((~chg & 0x08) && (old_value & 0x08)){ // PIN_DECREMENT pino 3
-        if(velocity > -50){
-            velocity -= 5;
-            if(mode == MODE_CONTINUOUS && velocity != 0)
-                set_microstep_speed(GPTD1, velocity);
+        if(final_speed> -50){
+            final_speed -= 5;
         }
+        steps -= 1;
     }  
         
     if((~chg & 0x10) && (old_value & 0x10)){ // PIN_MODE pino 4
         mode += 1;
         mode %= 4;
         velocity = 0;
+        final_speed = 0;
         start = 0;
         cont = 0;
+        steps = 0;
+        gpt_stop_notification_t1(GPTD2);
     }
   
     if((~chg & 0x20) && (old_value & 0x20)){ // PIN_ENTER pino 5
@@ -159,7 +145,7 @@ ISR(PCINT0_vect) {
     }
 
     old_value = new_value;
-    // chama o temporizador do debounce
+    // chama o temporizador
     gpt_start(GPTD3, &cfg_debounce);
     // habilita interrupção do temporizador
     gpt_start_notification(GPTD3, cb_debounce, 0);
@@ -199,11 +185,12 @@ void motor_run(void){
                 gpio_write_group(GPIOD4, 0xF0, coil4);
                 cb_achieved = 0;
                 currentCoil = 0;
+                cont += 1;
             }
         break;
 
-        default:
-            currentCoil = 0;
+    default:
+        currentCoil = 0;
         break;
     }
 }
@@ -215,7 +202,7 @@ void motor_run(void){
  */
 int main() {
     GPT_Config cfg = {MODE_CTC, DIVISOR_1024, 0xFF};//, 0
-    GPIO_mode mode_pullup[] = {GPIO_IN_PULLUP, GPIO_IN_PULLUP, GPIO_IN_PULLUP, GPIO_IN_PULLUP, GPIO_IN_PULLUP,GPIO_IN_PULLUP,GPIO_IN_PULLUP,GPIO_IN_PULLUP};
+    GPIO_mode mode_pullup[] = {GPIO_IN_PULLUP, GPIO_IN_PULLUP, GPIO_IN_PULLUP, GPIO_IN_PULLUP};
     GPIO_mode mode_out[] = {GPIO_OUT, GPIO_OUT, GPIO_OUT, GPIO_OUT};
 
     sei();   //habilita interrupção (função do compilador)
@@ -227,29 +214,35 @@ int main() {
     //gpio_set_pin_mode(GPIOD4, 0, GPIO_OUT);
     //gpio_set_pin_mode(GPIOD4, 1, GPIO_OUT);
     //gpio_set_pin_mode(GPIOD4, 2, GPIO_OUT);
-    gpio_set_pin_mode(GPIOD4, 0, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD2, 0, GPIO_OUT);
     gpio_set_pin_mode(GPIOD4, 4, GPIO_OUT);
     gpio_set_pin_mode(GPIOD4, 5, GPIO_OUT);
     gpio_set_pin_mode(GPIOD4, 6, GPIO_OUT);
     gpio_set_pin_mode(GPIOD4, 7, GPIO_OUT);
+
+    /* TESTE */ 
+    //gpio_set_pin_mode(GPIOD4, 1, GPIO_OUT);
+
     gpio_clear_port(GPIOD4);
 
     gpio_set_group_mode(GPIOD2, 0b00111100, mode_pullup);
 
     PCICR |= (1 << PCIE0); // habilita a interrupção da porta B
-    PCMSK0 |= 0b00111100; // habilita a interrupção dos pinos 2, 3, 4 e 5 da porta B
+    PCMSK0 |= 0b00111100; // habilita a interrupção dos pinos 0, 1, 2 e 3 da porta B
 
     gpt_start(GPTD1, &cfg);
-
     gpt_start_notification(GPTD1, cb, 0);
 
-    gpt_start_t1(GPTD2, 0xFF,0xFF);
-    gpt_start_notification_t1(GPTD2, cb_aceleracao, 0);
+    gpt_start_t1(GPTD2, 0x01, 0b00111000);  // 312 em binario 256 + 32 + 16 + 8 {0x01, 0b00111000}
+
 
     old_value = PINB;
     mode = MODE_OFF;
     start = 0;
-    
+    velocity = 0;
+    final_speed = 0;
+    steps = 0;
+    cont = 0;
 
     while (1){       
         if(velocity >= 0){                           //define sentido de rotação
@@ -265,34 +258,41 @@ int main() {
             coil4 = 0x10;
         }
 
+        //gpio_write_pin(GPIOD2, 0, start);
+
         switch(mode){
-            case MODE_OFF:       
-                gpio_write_group(GPIOD4, 0xFF, 0x00);
+            case MODE_OFF:      
+                gpio_write_group(GPIOD4, 0xF0, 0x00);
             break;
             case MODE_CONTINUOUS:                  
-                if(start && velocity != 0){     
-                    motor_run();
+                if(start){     
+                    //gpt_start_notification_t1(GPTD2, cb_aceleracao, 0);
+                    velocity = final_speed;
+                    gpio_write_pin(GPIOD2, 0, start); // DEBUG
                 }
+                else
+                    gpt_stop_notification_t1(GPTD2);
             break;
             case MODE_ON_DEMAND_SLOW:
-                if(start && cont < abs(velocity)){
-                    set_microstep_speed(GPTD1, 2);     
-                    motor_run();
-                    cont++;
-                    //delay 2 passos/s...
+                if(start && (cont <= abs(steps))){
+                    velocity = 2;
+                    //gpio_write_group(GPIOD4, 0xF0, 0x40);
+                }else{
+                    velocity = 0;
                 }
             break;
             case MODE_ON_DEMAND_FAST:
-                if(start && cont <= abs(velocity)){     
-                    set_microstep_speed(GPTD1, 10);
-                    motor_run();  
-                    cont++;
-                    //delay 10 passos/s...
+                if(start && (cont <= abs(steps))){
+                    velocity = 10;     
+                    //gpio_write_group(GPIOD4, 0xF0, 0x80);
+                }else{
+                    velocity = 0;
                 }
             break;
-            default:
-                mode = MODE_OFF;
-            break;
+            //default:
+                //gpio_write_group(GPIOD4, 0xF, 0x0);
         }
+        set_microstep_speed(GPTD1, velocity);
+        motor_run();
     }
 }
