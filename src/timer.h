@@ -25,6 +25,7 @@ typedef struct {
     gpt_mode_t mode;
     gpt_divisor_t divisor;
     uint8_t top;
+    uint8_t max_overlows;
 } GPT_Config;
 
 extern GPT_t GPT_obj1;
@@ -37,7 +38,7 @@ void gpt_start(GPT_t *gptp, const GPT_Config *config);
 void gpt_stop(GPT_t *gptp);
 uint8_t gpt_start_notification(GPT_t *gptp, gpt_cb_t cb, uint8_t is_oneshot);
 uint8_t gpt_stop_notification(GPT_t *gptp);
-uint8_t gpt_change_interval(GPT_t *gptp, uint8_t interval);
+uint8_t gpt_change_interval(GPT_t *gptp, uint8_t interval, uint8_t nbr_overflows);
 
 uint8_t gpt_enable_pwm_channel(GPT_t *gptp, uint8_t channel, uint8_t width);
 void gpt_disable_pwm_channel(GPT_t *gptp, uint8_t channel);
@@ -46,5 +47,6 @@ uint8_t gpt_start_channel_notification(GPT_t *gptp, uint8_t channel,
                                        uint8_t interval,
                                        gpt_cb_t cb, uint8_t is_oneshot);
 void gpt_stop_channel_notification(GPT_t *gptp, uint8_t channel);
+uint8_t get_gpt_overflows(GPT_t *gptp);
 
 #endif /* TIMER_H */

@@ -57,7 +57,7 @@ uint8_t coil2;
 uint8_t coil3;
 uint8_t coil4;
 uint8_t cb_achieved;
-uint8_t old_value = 0x0F;
+uint8_t old_value = 0x0;
 
 Oper_mode mode;
 Coil currentCoil;
@@ -107,7 +107,7 @@ ISR(PCINT0_vect) {
     // desabilita interrupção da porta B
     PCICR &= ~(1 << PCIE0);
     // ler valor da porta
-    new_value = PORTB; //checar registrador da porta B
+    new_value = PINB; //checar registrador da porta B
     chg = new_value & old_value;
     !start;
     gpio_write_pin(GPIOD4, 0x10, start);
@@ -198,20 +198,32 @@ int main() {
 
     sei();   //habilita interrupção (função do compilador)
              //cli() desabilita interrupção
-    PORTB |= old_value; //(0x0F); 
+    //PORTB |= old_value; //(0x0F); 
     PCICR |= (1 << PCIE0); // habilita a interrupção da porta B
     PCMSK0 |= (0xF); // habilita a interrupção dos pinos 0, 1, 2 e 3 da porta B
 
     gpt_init();
     
-    gpio_set_group_mode(GPIOD4, 0xF, mode_out);
-    gpio_set_pin_mode(GPIOD4, 0x10, GPIO_OUT);
-    gpio_clear_pin(GPIOD4, 0x10);
-    gpio_set_group_mode(GPIOD2, 0xF0, mode_pullup);
+    //gpio_set_group_mode(GPIOD4, 0xF, mode_out);
+    gpio_set_pin_mode(GPIOD2, 0, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD2, 1, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD2, 2, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD2, 3, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD2, 4, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD2, 5, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD2, 6, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD2, 7, GPIO_OUT);
+    gpio_clear_port(GPIOD2);
+    gpio_set_port(GPIOD2);
+    //gpio_set_pin(GPIOD4, 6);
+
+    ///gpio_set_group_mode(GPIOD2, 0xF0, mode_pullup);
 
     gpt_start(GPTD1, &cfg);
 
     gpt_start_notification(GPTD1, cb, 0);
+
+    old_value = PINB;
     
 
     while (1){       

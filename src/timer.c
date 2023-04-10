@@ -55,8 +55,8 @@ void gpt_init(void) {
     GPT_obj3.tifr = &TIFR2;
     GPT_obj1.timsk = &TIMSK0;
     GPT_obj3.timsk = &TIMSK2;
-    GPT_obj1.max_nbr_overflows = 2;
-    GPT_obj3.max_nbr_overflows = 8;
+    GPT_obj1.max_nbr_overflows = 1;
+    GPT_obj3.max_nbr_overflows = 1;
 
     GPT_obj1.current_cb = 0;
     GPT_obj1.current_channel_cb[0] = GPT_obj1.current_channel_cb[1] = 0;
@@ -64,6 +64,10 @@ void gpt_init(void) {
     GPT_obj3.current_channel_cb[0] = GPT_obj3.current_channel_cb[1] = 0;
 
     /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
+}
+
+uint8_t get_gpt_overflows(GPT_t *gptp){
+    return gptp->max_nbr_overflows;
 }
 
 /*
@@ -77,9 +81,11 @@ void gpt_start(GPT_t *gptp, const GPT_Config *config) {
     uint8_t MODE_MSK_B = 0b00001000;
     uint8_t DIV_MSK = 0b00000111;
 
+    gptp->regs->tcnt &= ~(0xFF);
     gptp->current_mode = config->mode; // modo de operação
     gptp->divisor = config->divisor;   // setando o divisor
     gptp->regs->ocra = config->top;   // valor topo da contagem
+    gptp->max_nbr_overflows = config->max_overlows;
 
     gptp->regs->tccra &= ~(MODE_MSK_A);
     gptp->regs->tccrb &= ~(MODE_MSK_B);
@@ -93,7 +99,7 @@ void gpt_start(GPT_t *gptp, const GPT_Config *config) {
             gptp->regs->tccra |= (0x03 & MODE_MSK_A);
         case MODE_FAST_PWM_USER_TOP: //1 01
             gptp->regs->tccra |= (0x03 & MODE_MSK_A);
-            gptp->regs->tccrb |= (0x08 & MODE_MSK_B);  
+            gptp->regs->tccrb |= (MODE_MSK_B);  
         default:
             gptp->regs->tccra |= (0x00 & MODE_MSK_A);
     }
@@ -115,7 +121,7 @@ void gpt_start(GPT_t *gptp, const GPT_Config *config) {
             gptp->regs->tccrb |= (0x01 & DIV_MSK);
     }
 
-    /* ACHO QUE TÁ OK. O outro eu ajeitou só uns detalhes e também acha que tá ok */
+    /* ACHO QUE TÁ OK */
 }
 
 /*
@@ -127,8 +133,9 @@ void gpt_stop(GPT_t *gptp) {
     uint8_t CS_MSK = 0b00000111;
 
     gptp->regs->tccrb &= ~(CS_MSK);
+    gptp->regs->tcnt &= ~(0xFF);
 
-    /* ACHO QUE TÁ OK. O outro eu também acha*/
+    /* ACHO QUE TÁ OK */
 }
 
 /*
@@ -166,11 +173,12 @@ uint8_t gpt_stop_notification(GPT_t *gptp) {
  * que se o modo for o modo normal de contagem, este valor não pode
  * ser mudado e deve ser ignorado.
  */
-uint8_t gpt_change_interval(GPT_t *gptp, uint8_t interval) {
+uint8_t gpt_change_interval(GPT_t *gptp, uint8_t interval, uint8_t nbr_overflows) {
+    gptp->max_nbr_overflows = nbr_overflows;
     if (gptp->current_mode != MODE_NORMAL)
         gptp->regs->ocra = interval;
 
-    /* ACHO QUE TÁ OK. Yo tambíen */
+    /* ACHO QUE TÁ OK */
 }
 
 /*
@@ -187,17 +195,14 @@ uint8_t gpt_enable_pwm_channel(GPT_t *gptp, uint8_t channel, uint8_t width) {
     uint8_t top = gptp->regs->ocra;
 
     *gptp->timsk |= (1 << TOIE0);
-    if (!channel){
+    if (!channel) {
         gptp->regs->ocra = width / (top + 1);
         *gptp->timsk |= (1 << OCIE0A);
-    }
-    else{
+    }else{
         gptp->regs->ocrb = width / (top + 1);
         *gptp->timsk |= (1 << OCIE0B);
     }
 }
-
-/*Yo acho que tá faltando coisa*/
 
 /*
  * Função para parar a geração do sinal PWM no canal
@@ -211,7 +216,7 @@ void gpt_disable_pwm_channel(GPT_t *gptp, uint8_t channel) {
     else
         *gptp->timsk &= ~(1 << OCIE0B);
 
-    /* ACHO QUE TÁ OK. Depois eu vejo */
+    /* ACHO QUE TÁ OK */
 }
 
 /*
@@ -232,17 +237,14 @@ uint8_t gpt_start_channel_notification(GPT_t *gptp, uint8_t channel,
         gptp->current_cb(gptp);
     gptp->regs->ocra = interval;
 
-    if (channel){ // channel 1 é a interrupção do OCIE0B 
+    if (channel) {// channel 1 é a interrupção do OCIE0B 
         *gptp->tifr |= (1 << OCF0B);
         *gptp->timsk |= (1 << OCIE0B);
-    }
-    else{
+    }else{
         *gptp->tifr |= (1 << OCF0A);
         *gptp->timsk |= (1 << OCIE0A);
     }
 }
-
-/*Depois eu olho*/
 
 /*
  * Função para parar as notificações de igualdade na comparação
@@ -254,7 +256,7 @@ void gpt_stop_channel_notification(GPT_t *gptp, uint8_t channel) {
     else
         *gptp->timsk &= ~(1 << OCIE0A);
 
-    /* ACHO QUE TÁ OK. Depois eu vejo */
+    /* ACHO QUE TÁ OK */
 }
 
 
