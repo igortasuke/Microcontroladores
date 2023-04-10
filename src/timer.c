@@ -30,10 +30,40 @@ struct GPT_Struct {
     volatile uint8_t* timsk; // timer mascara
     gpt_mode_t current_mode; // modo de operação
     gpt_divisor_t divisor;   //
-    uint8_t max_nbr_overflows;
+//    uint8_t max_nbr_overflows;
     gpt_cb_t current_cb;     // callback atual 
     uint8_t is_oneshot;      // 
     gpt_cb_t current_channel_cb[2];
+    uint8_t is_channel_oneshot[2];
+};
+
+typedef struct {
+    volatile uint8_t tccra; // Timer/Counter Control Register A
+    volatile uint8_t tccrb; // Timer/Counter Control Register B
+    volatile uint8_t tccrc; // Timer/Counter Control Register C
+} GPT_Regs_crt_t;
+typedef struct {
+    volatile uint8_t tcntl;  // Timer/Counter low
+    volatile uint8_t tcnth;  // Timer/Counter high
+    volatile uint8_t icrl;  // Input capture Register
+    volatile uint8_t icrh;  // Input capture Register
+    volatile uint8_t ocral;  // Output Compare Register A
+    volatile uint8_t ocrah;  // Output Compare Register A
+    volatile uint8_t ocrbl;  // Output Compare Register B
+    volatile uint8_t ocrbh;  // Output Compare Register B
+} GPT_Regs16_t;
+
+struct GPT_Struct16 {
+    GPT_Regs_crt_t* regs_crt;// registradores de controle
+    GPT_Regs16_t* regs;      // registradores
+    volatile uint8_t* tifr;  // timer flag
+    volatile uint8_t* timsk; // timer mascara
+    gpt_mode_t current_mode; // modo de operação
+    gpt_divisor_t divisor;   //
+//    uint8_t max_nbr_overflows;
+    gpt_cb_16_t current_cb;     // callback atual 
+    uint8_t is_oneshot;      // 
+    gpt_cb_16_t current_channel_cb[2];
     uint8_t is_channel_oneshot[2];
 };
 
@@ -43,6 +73,7 @@ struct GPT_Struct {
  */
 GPT_t GPT_obj1;
 GPT_t GPT_obj3;
+GPT16_t GPT_obj2;
 
 /*
  * Função para inicializar as variáveis relativas as estruturas que
@@ -55,19 +86,32 @@ void gpt_init(void) {
     GPT_obj3.tifr = &TIFR2;
     GPT_obj1.timsk = &TIMSK0;
     GPT_obj3.timsk = &TIMSK2;
-    GPT_obj1.max_nbr_overflows = 1;
-    GPT_obj3.max_nbr_overflows = 1;
 
     GPT_obj1.current_cb = 0;
     GPT_obj1.current_channel_cb[0] = GPT_obj1.current_channel_cb[1] = 0;
     GPT_obj3.current_cb = 0;
     GPT_obj3.current_channel_cb[0] = GPT_obj3.current_channel_cb[1] = 0;
 
+    GPT_obj2.regs_crt = (GPT_Regs_crt_t *) &TCCR1A;
+    GPT_obj2.regs = (GPT_Regs16_t *) &TCNT1L;
+    GPT_obj2.tifr = &TIFR1;
+    GPT_obj2.timsk = &TIMSK1;
+    GPT_obj2.current_cb = 0;
+    GPT_obj2.current_channel_cb[0] = GPT_obj2.current_channel_cb[1] = 0;
+
     /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
 }
 
-uint8_t get_gpt_overflows(GPT_t *gptp){
-    return gptp->max_nbr_overflows;
+void gpt_start_t1(GPT16_t *gptp, uint8_t topl, uint8_t toph) {
+
+    gptp->regs->tcntl &= ~(0xFF);
+    gptp->regs->tcnth &= ~(0xFF);
+    gptp->regs_crt->tccra &= 0x00; // modo de operação CTC, divisor 1024
+    gptp->regs_crt->tccrb |= 0b00001101; // modo de operação CTC, divisor 1024
+    gptp->regs_crt->tccrc &= 0x00; // modo de operação CTC, divisor 1024
+
+    gptp->regs->ocral = topl;   // valor topo da contagem
+    gptp->regs->ocrah = toph;   // valor topo da contagem
 }
 
 /*
@@ -85,7 +129,7 @@ void gpt_start(GPT_t *gptp, const GPT_Config *config) {
     gptp->current_mode = config->mode; // modo de operação
     gptp->divisor = config->divisor;   // setando o divisor
     gptp->regs->ocra = config->top;   // valor topo da contagem
-    gptp->max_nbr_overflows = config->max_overlows;
+//    gptp->max_nbr_overflows = config->max_overlows;
 
     gptp->regs->tccra &= ~(MODE_MSK_A);
     gptp->regs->tccrb &= ~(MODE_MSK_B);
@@ -138,6 +182,37 @@ void gpt_stop(GPT_t *gptp) {
     /* ACHO QUE TÁ OK */
 }
 
+void gpt_stop_t1(GPT16_t *gptp) {
+    uint8_t CS_MSK = 0b00000111;
+
+    gptp->regs_crt->tccrb &= ~(CS_MSK);
+    gptp->regs->tcntl &= ~(0xFF);
+    gptp->regs->tcnth &= ~(0xFF);
+
+    /* ACHO QUE TÁ OK */
+}
+
+uint8_t gpt_start_notification_t1(GPT16_t *gptp, gpt_cb_16_t cb, uint8_t is_oneshot) {
+    gptp->current_cb = cb;
+    gptp->is_oneshot = is_oneshot;
+
+    *gptp->tifr |= (1 << TOV1);
+    *gptp->timsk |= (1 << TOIE1);
+
+    /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
+}
+
+/*
+ * Função para interromper as notificações.  O temporizador ainda deve
+ * continuar a contar, mas as notificações não mais ocorrerão.
+ */
+uint8_t gpt_stop_notification_t1(GPT16_t *gptp) {
+    *gptp->timsk &= ~(1 << TOIE1);
+
+    /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
+}
+
+
 /*
  * Função para iniciar as notificações de reinício da contagem (timer
  * overflow).
@@ -173,8 +248,8 @@ uint8_t gpt_stop_notification(GPT_t *gptp) {
  * que se o modo for o modo normal de contagem, este valor não pode
  * ser mudado e deve ser ignorado.
  */
-uint8_t gpt_change_interval(GPT_t *gptp, uint8_t interval, uint8_t nbr_overflows) {
-    gptp->max_nbr_overflows = nbr_overflows;
+uint8_t gpt_change_interval(GPT_t *gptp, uint8_t interval) { //, uint8_t nbr_overflows
+//    gptp->max_nbr_overflows = nbr_overflows;
     if (gptp->current_mode != MODE_NORMAL)
         gptp->regs->ocra = interval;
 
@@ -348,6 +423,22 @@ ISR(TIMER2_COMPB_vect) {
 
     if (GPT_obj3.is_channel_oneshot[1])
         TIMSK2 &= ~(1 << OCIE2B);
+
+    /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
+}
+
+/*
+ * Rotina de tratamento da interrupção de overflow do temporizador
+ * 1. Se o ponteiro para a função de callback for não-nulo, chama a
+ * função, e se o callback for oneshot, desativa a interrupção (mas
+ * não o temporizador, pois pode ainda estar gerando algum sinal PWM.
+ */
+ISR(TIMER1_OVF_vect) {
+    if (GPT_obj2.current_cb)
+        GPT_obj2.current_cb(&GPT_obj2);
+
+    if (GPT_obj2.is_oneshot)
+        TIMSK1 &= ~(1 << TOIE1);
 
     /* NÃO HÁ MAIS NADA A IMPLEMENTAR AQUI */
 }

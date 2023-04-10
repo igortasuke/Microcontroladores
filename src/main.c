@@ -86,13 +86,27 @@ uint8_t overflows_t0 = 32;
  * placa Arduino Nano está ligado) é invertido.
  */
 void cb(GPT_t* drv) {
-    static int ctr = 0;
-    //uint8_t overflows;
+    static int ctr = -1;
+    uint8_t overflows;
 
-    //overflows = get_gpt_overflows(drv);
-    if (++ctr == overflows_t0) {
+    overflows = get_nbr_overflows();
+    if (++ctr == overflows) {
 	    cb_achieved = 1;
-	    ctr = 0;
+	    ctr = -1;
+    }
+}
+
+void cb_aceleracao(GPT16_t* drv) {
+    static int ctr = 0;
+    uint8_t overflows;
+
+    overflows = get_nbr_overflows();
+    if (++ctr == overflows) {
+        if (velocity < 50)
+	        velocity += 5;
+        else
+            gpt_stop_t1(drv);
+        ctr = 0;
     }
 }
 
@@ -118,23 +132,25 @@ ISR(PCINT0_vect) {
     // ler valor da porta
     new_value = PINB; //checar registrador da porta B
     chg = new_value & old_value;
-    //!start;
+
     if((~chg & 0x04) && (old_value & 0x04)){ // PIN_INCREMENT pino 2
         if(velocity < 50){
             velocity += 5;
-            set_microstep_speed(GPTD1, velocity);
+            if(mode == MODE_CONTINUOUS)
+                set_microstep_speed(GPTD1, velocity);
         }
     }   
     if((~chg & 0x08) && (old_value & 0x08)){ // PIN_DECREMENT pino 3
         if(velocity > -50){
             velocity -= 5;
-            set_microstep_speed(GPTD1, velocity);
+            if(mode == MODE_CONTINUOUS)
+                set_microstep_speed(GPTD1, velocity);
         }
     }  
         
     if((~chg & 0x10) && (old_value & 0x10)){ // PIN_MODE pino 4
         mode += 1;
-        mode %= 2;
+        mode %= 4;
         velocity = 0;
         instantaneous = 0;
         start = 0;
@@ -201,9 +217,8 @@ void motor_run(void){
  * frequência de aproximadamente a 16 kHz.
  */
 int main() {
-    mode = MODE_OFF;
     GPT_Config cfg = {MODE_CTC, DIVISOR_1024, 0xFF};//, 0
-    GPIO_mode mode_pullup[] = {GPIO_IN_PULLUP, GPIO_IN_PULLUP, GPIO_IN_PULLUP, GPIO_IN_PULLUP};
+    GPIO_mode mode_pullup[] = {GPIO_IN_PULLUP, GPIO_IN_PULLUP, GPIO_IN_PULLUP, GPIO_IN_PULLUP, GPIO_IN_PULLUP,GPIO_IN_PULLUP,GPIO_IN_PULLUP,GPIO_IN_PULLUP};
     GPIO_mode mode_out[] = {GPIO_OUT, GPIO_OUT, GPIO_OUT, GPIO_OUT};
 
     sei();   //habilita interrupção (função do compilador)
@@ -221,8 +236,6 @@ int main() {
     gpio_set_pin_mode(GPIOD4, 6, GPIO_OUT);
     gpio_set_pin_mode(GPIOD4, 7, GPIO_OUT);
     gpio_clear_port(GPIOD4);
-    //gpio_set_group(GPIOD4, 0xF0);
-    //gpio_set_pin(GPIOD4, 6);
 
     gpio_set_group_mode(GPIOD2, 0b00111100, mode_pullup);
 
@@ -233,10 +246,17 @@ int main() {
 
     gpt_start_notification(GPTD1, cb, 0);
 
+    gpt_start_t1(GPTD2, 0xFF,0xFF);
+    gpt_start_notification_t1(GPTD2, cb_aceleracao, 0);
+
     old_value = PINB;
+    mode = MODE_OFF;
+    start = 0;
+    velocity = 0;
+    
 
     while (1){       
-        if(velocity > 0){                           //define sentido de rotação
+        if(velocity >= 0){                           //define sentido de rotação
             coil1 = 0x10;
             coil2 = 0x20;
             coil3 = 0x40;
@@ -251,7 +271,7 @@ int main() {
 
         switch(mode){
             case MODE_OFF:       
-                //gpio_write_group(GPIOD4, 0xF, 0x0);
+                gpio_write_group(GPIOD4, 0xFF, 0x00);
             break;
             case MODE_CONTINUOUS:                  
                 if(start){     
@@ -271,15 +291,16 @@ int main() {
                 }
             break;
             case MODE_ON_DEMAND_FAST:
-                if(start && cont < abs(velocity)){     
+                if(start && cont <= abs(velocity)){     
                     set_microstep_speed(GPTD1, 10);
                     motor_run();  
                     cont++;
                     //delay 10 passos/s...
                 }
             break;
-            //default:
-                //gpio_write_group(GPIOD4, 0xF, 0x0);
+            default:
+                mode = MODE_OFF;
+            break;
         }
     }
 }
