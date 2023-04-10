@@ -136,14 +136,14 @@ ISR(PCINT0_vect) {
     if((~chg & 0x04) && (old_value & 0x04)){ // PIN_INCREMENT pino 2
         if(velocity < 50){
             velocity += 5;
-            if(mode == MODE_CONTINUOUS)
+            if(mode == MODE_CONTINUOUS && velocity != 0)
                 set_microstep_speed(GPTD1, velocity);
         }
     }   
     if((~chg & 0x08) && (old_value & 0x08)){ // PIN_DECREMENT pino 3
         if(velocity > -50){
             velocity -= 5;
-            if(mode == MODE_CONTINUOUS)
+            if(mode == MODE_CONTINUOUS && velocity != 0)
                 set_microstep_speed(GPTD1, velocity);
         }
     }  
@@ -152,7 +152,6 @@ ISR(PCINT0_vect) {
         mode += 1;
         mode %= 4;
         velocity = 0;
-        instantaneous = 0;
         start = 0;
         cont = 0;
     }
@@ -205,8 +204,8 @@ void motor_run(void){
             }
         break;
 
-    default:
-        currentCoil = 0;
+        default:
+            currentCoil = 0;
         break;
     }
 }
@@ -252,7 +251,6 @@ int main() {
     old_value = PINB;
     mode = MODE_OFF;
     start = 0;
-    velocity = 0;
     
 
     while (1){       
@@ -274,11 +272,7 @@ int main() {
                 gpio_write_group(GPIOD4, 0xFF, 0x00);
             break;
             case MODE_CONTINUOUS:                  
-                if(start){     
-                    if(instantaneous < velocity){
-                        instantaneous += 5;
-                        //delay 50passos/s²
-                    }
+                if(start && velocity != 0){     
                     motor_run();
                 }
             break;
