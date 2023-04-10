@@ -73,7 +73,7 @@ uint8_t old_value = 0x0;
 Oper_mode mode;
 Coil currentCoil;
 
-uint8_t overflows_debouce = 7;
+uint8_t overflows_debouce = 17;
 uint8_t overflows_t0 = 32;
 
 // GPT_Config cfg0 = {MODE_CTC, DIVISOR_1024, 194, 3};
@@ -119,8 +119,6 @@ void cb_debounce(GPT_t* drv) {
 	    gpt_stop(GPTD3);
     }
 }
-
-//void debounce() {}
 
 ISR(PCINT0_vect) {
     uint8_t new_value;
