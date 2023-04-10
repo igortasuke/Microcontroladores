@@ -72,6 +72,16 @@ void set_microstep_speed(GPT_t* gptp, int8_t velocidade) {
                 overflows = 10;
                 break;
 
+                case (101):
+                    reg_top = 255;
+                    overflows = 128;
+                break;
+
+                case (102):
+                    reg_top = 255;
+                    overflows = 64;
+                break;
+                
                 default:
                 reg_top = 194;
                 overflows = 3;

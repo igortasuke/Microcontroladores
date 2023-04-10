@@ -97,14 +97,12 @@ void cb(GPT_t* drv) {
 }
 
 void cb_debounce(GPT_t* drv) {
-    static int ctr = 0;
-    //uint8_t overflows;
+    static int ctr = -1;
 
-    //overflows = get_gpt_overflows(drv);
     if (++ctr == overflows_debouce) {
+        ctr = -1;
+        PCICR |= (1 << PCIE0); // habilita a interrupção da porta B
 	    gpt_stop(GPTD3);
-	    ctr = 0;
-        PCICR &= ~(1 << PCIE0); // habilita a interrupção da porta B
     }
 }
 
@@ -121,40 +119,34 @@ ISR(PCINT0_vect) {
     new_value = PINB; //checar registrador da porta B
     chg = new_value & old_value;
     //!start;
-    gpio_write_pin(GPIOD2, 0, 1);
-    if((~chg & 0x4) && (old_value & 0x4)){ // PIN_INCREMENT pino 0
+    if((~chg & 0x04) && (old_value & 0x04)){ // PIN_INCREMENT pino 2
         if(velocity < 50){
             velocity += 5;
-            set_microstep_speed(GPTD1, 15);   
+            set_microstep_speed(GPTD1, velocity);
         }
-        gpio_write_pin(GPIOD4, 4, 1);
     }   
-    if((~chg & 0x8) && (old_value & 0x8)){ // PIN_DECREMENT pino 1
+    if((~chg & 0x08) && (old_value & 0x08)){ // PIN_DECREMENT pino 3
         if(velocity > -50){
             velocity -= 5;
-            set_microstep_speed(GPTD1, 15);
+            set_microstep_speed(GPTD1, velocity);
         }
-        gpio_write_pin(GPIOD4, 5, 1);
     }  
         
-    if((~chg & 0x10) && (old_value & 0x10)){ // PIN_MODE pino 2
+    if((~chg & 0x10) && (old_value & 0x10)){ // PIN_MODE pino 4
         mode += 1;
-        mode %= 4;
+        mode %= 2;
         velocity = 0;
         instantaneous = 0;
         start = 0;
         cont = 0;
-        gpio_write_pin(GPIOD4, 6, 1);
     }
   
-    if((~chg & 0x20) && (old_value & 0x20)){ // PIN_ENTER pino 3
-        !start;
-        //gpio_write_pin(GPIOD4, 0, start);
-        gpio_write_pin(GPIOD4, 7, 1);  
+    if((~chg & 0x20) && (old_value & 0x20)){ // PIN_ENTER pino 5
+        start = !start;
     }
 
     old_value = new_value;
-    // chama o temporizador
+    // chama o temporizador do debounce
     gpt_start(GPTD3, &cfg_debounce);
     // habilita interrupção do temporizador
     gpt_start_notification(GPTD3, cb_debounce, 0);
@@ -223,7 +215,7 @@ int main() {
     //gpio_set_pin_mode(GPIOD4, 0, GPIO_OUT);
     //gpio_set_pin_mode(GPIOD4, 1, GPIO_OUT);
     //gpio_set_pin_mode(GPIOD4, 2, GPIO_OUT);
-    gpio_set_pin_mode(GPIOD2, 0, GPIO_OUT);
+    gpio_set_pin_mode(GPIOD4, 0, GPIO_OUT);
     gpio_set_pin_mode(GPIOD4, 4, GPIO_OUT);
     gpio_set_pin_mode(GPIOD4, 5, GPIO_OUT);
     gpio_set_pin_mode(GPIOD4, 6, GPIO_OUT);
@@ -242,7 +234,6 @@ int main() {
     gpt_start_notification(GPTD1, cb, 0);
 
     old_value = PINB;
-    
 
     while (1){       
         if(velocity > 0){                           //define sentido de rotação
@@ -281,10 +272,6 @@ int main() {
             break;
             case MODE_ON_DEMAND_FAST:
                 if(start && cont < abs(velocity)){     
-                    //gpio_write_group(GPIOD4, 0x1, coil1);
-                    //gpio_write_group(GPIOD4, 0x2, coil2);
-                    //gpio_write_group(GPIOD4, 0x3, coil3);
-                    //gpio_write_group(GPIOD4, 0x4, coil4);
                     set_microstep_speed(GPTD1, 10);
                     motor_run();  
                     cont++;
